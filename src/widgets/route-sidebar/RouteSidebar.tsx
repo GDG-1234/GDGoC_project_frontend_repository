@@ -328,7 +328,7 @@ export const RouteSidebar: React.FC<RouteSidebarProps> = ({
                 {formatDurationText(summary.totalSeconds)}
               </span>
               <span className="summary-sub">
-                ({summary.totalSeconds}초 · {summary.totalKcal} kcal)
+                ({summary.totalKcal} kcal)
               </span>
             </div>
             <span className="mono-tag">
@@ -338,13 +338,10 @@ export const RouteSidebar: React.FC<RouteSidebarProps> = ({
           </div>
 
           {summary.usesShortcut && (
-            <div className="shortcut-highlight-banner">
+            <div className="shortcut-highlight-banner"> 
               <strong>★ 학교 지름길 포함 경로</strong>
               {summary.savedSeconds !== null && summary.savedSeconds > 0 && (
-                <span>
-                  일반 길보다 {formatDurationText(summary.savedSeconds)} (
-                  {summary.savedSeconds}초) 빨라요!
-                </span>
+                <span>({formatDurationText(summary.savedSeconds)} 빨라요)</span>
               )}
             </div>
           )}

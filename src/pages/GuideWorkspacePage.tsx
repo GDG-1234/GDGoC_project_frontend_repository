@@ -232,8 +232,7 @@ export const GuideWorkspacePage: React.FC = () => {
     <div className="app-shell">
       <header className="topbar">
         <div className="topbar-left">
-          <h1 className="app-title">동국대학교 웹 길안내</h1>
-          <span className="arch-badge">1단계: 2D 길안내 MVP</span>
+          <h1 className="app-title">아코봇 길안내</h1>
         </div>
 
         {/* 데이터 소스 전환 (Mock 데이터 <-> 백엔드 FastAPI 서버) */}

@@ -48,6 +48,18 @@ function makeEl(className: string, text?: string): HTMLElement {
   return el;
 }
 
+// 출발/도착 핀 (물방울 모양 SVG). 뾰족한 끝이 좌표 위치다.
+function makePinEl(variant: 'pin-from' | 'pin-to'): HTMLElement {
+  const wrap = makeEl(`map2d-pin ${variant}`);
+  wrap.innerHTML = `
+    <svg width="30" height="38" viewBox="0 0 30 38" aria-hidden="true">
+      <path d="M15 1C7.3 1 1 7.2 1 14.8 1 25.4 15 37 15 37s14-11.6 14-22.2C29 7.2 22.7 1 15 1z"
+            class="map2d-pin-body" />
+      <circle cx="15" cy="15" r="5" fill="#ffffff" />
+    </svg>`;
+  return wrap;
+}
+
 function makeIcon(
   inner: HTMLElement,
   anchor: 'center' | 'above' | 'above-step' | 'below'
@@ -392,25 +404,21 @@ export const Map2DViewer: React.FC<Map2DViewerProps> = (props) => {
       }).addTo(group);
     });
 
-    // (D) 출발지 / 도착지 핀
+    // (D) 출발지 / 도착지 핀 (이름은 마우스를 올렸을 때 툴팁으로만 보여 준다)
     if (fromPlace) {
       L.marker(toLatLng(fromPlace.position), {
-        icon: makeIcon(
-          makeEl('map2d-endpoint-pin pin-from', `출발: ${fromPlace.name}`),
-          'above'
-        ),
-        interactive: false,
+        icon: makeIcon(makePinEl('pin-from'), 'above'),
+        title: `출발: ${fromPlace.name}`,
+        alt: `출발: ${fromPlace.name}`,
         keyboard: false,
         zIndexOffset: 600,
       }).addTo(group);
     }
     if (toPlace) {
       L.marker(toLatLng(toPlace.position), {
-        icon: makeIcon(
-          makeEl('map2d-endpoint-pin pin-to', `도착: ${toPlace.name}`),
-          'above'
-        ),
-        interactive: false,
+        icon: makeIcon(makePinEl('pin-to'), 'above'),
+        title: `도착: ${toPlace.name}`,
+        alt: `도착: ${toPlace.name}`,
         keyboard: false,
         zIndexOffset: 600,
       }).addTo(group);
@@ -478,64 +486,6 @@ export const Map2DViewer: React.FC<Map2DViewerProps> = (props) => {
 
   return (
     <section className="map2d-section" aria-label="2D 캠퍼스 픽셀 좌표 지도 뷰어">
-      {/* 상단 지도 상태 및 범례 컨트롤 바 */}
-      <div className="map2d-toolbar">
-        <div className="map2d-legend">
-          <span className="legend-item">
-            <span className="legend-line legend-outdoor" /> 실외 경로
-          </span>
-          <span className="legend-item">
-            <span className="legend-line legend-indoor" /> 실내 구간(점선)
-          </span>
-          <span className="legend-item">
-            <span className="legend-line legend-shortcut" /> ★ 지름길 구간(강조)
-          </span>
-          <label className="checkbox-option">
-            <input
-              type="checkbox"
-              checked={showPlaceLabels}
-              onChange={() => setShowPlaceLabels((prev) => !prev)}
-            />
-            <span>주변 건물 라벨</span>
-          </label>
-        </div>
-
-        <div className="map2d-zoom-controls">
-          <span className="mono-tag">
-            배율 {Math.round(Math.pow(2, zoom) * 100)}%
-          </span>
-          {hoverPixel && (
-            <span className="mono-tag">
-              픽셀 ({hoverPixel.x}, {hoverPixel.y})
-            </span>
-          )}
-          <button
-            type="button"
-            className="strip-btn"
-            onClick={() => mapRef.current?.zoomIn()}
-          >
-            확대 +
-          </button>
-          <button
-            type="button"
-            className="strip-btn"
-            onClick={() => mapRef.current?.zoomOut()}
-          >
-            축소 −
-          </button>
-          <button
-            type="button"
-            className="strip-btn"
-            onClick={() =>
-              mapRef.current?.setView(toLatLng(mapInfo.defaultCenter), DEFAULT_ZOOM)
-            }
-          >
-            초기 위치
-          </button>
-        </div>
-      </div>
-
-      {/* Leaflet 지도 뷰포트 */}
       <div
         className={`map2d-viewport ${
           mapPickTarget ? 'map2d-viewport-picking' : ''
@@ -547,6 +497,70 @@ export const Map2DViewer: React.FC<Map2DViewerProps> = (props) => {
           role="application"
           aria-label="캠퍼스 지도 (드래그로 이동, 휠로 확대·축소)"
         />
+
+        {/* 좌상단 플로팅: 범례 + 라벨 토글 */}
+        <div className="map2d-float map2d-float-legend">
+          <span className="legend-item">
+            <span className="legend-line legend-outdoor" /> 실외
+          </span>
+          <span className="legend-item">
+            <span className="legend-line legend-indoor" /> 실내
+          </span>
+          <span className="legend-item">
+            <span className="legend-line legend-shortcut" /> 지름길
+          </span>
+          <label className="checkbox-option">
+            <input
+              type="checkbox"
+              checked={showPlaceLabels}
+              onChange={() => setShowPlaceLabels((prev) => !prev)}
+            />
+            <span>건물 라벨</span>
+          </label>
+        </div>
+
+        {/* 우상단 플로팅: 확대 / 축소 / 초기 위치 */}
+        <div className="map2d-float map2d-float-zoom" role="group" aria-label="지도 조작">
+          <button
+            type="button"
+            className="map2d-zoom-btn"
+            aria-label="확대"
+            title="확대"
+            onClick={() => mapRef.current?.zoomIn()}
+          >
+            +
+          </button>
+          <button
+            type="button"
+            className="map2d-zoom-btn"
+            aria-label="축소"
+            title="축소"
+            onClick={() => mapRef.current?.zoomOut()}
+          >
+            −
+          </button>
+          <button
+            type="button"
+            className="map2d-zoom-btn"
+            aria-label="초기 위치로 이동"
+            title="초기 위치"
+            onClick={() =>
+              mapRef.current?.setView(toLatLng(mapInfo.defaultCenter), DEFAULT_ZOOM)
+            }
+          >
+            ⟲
+          </button>
+        </div>
+
+        {/* 우하단: 배율 / 픽셀 좌표 (디버깅용) */}
+        <div className="map2d-float map2d-float-status" aria-live="off">
+          <span>{Math.round(Math.pow(2, zoom) * 100)}%</span>
+          {hoverPixel && (
+            <span>
+              ({hoverPixel.x}, {hoverPixel.y})
+            </span>
+          )}
+        </div>
 
         {/* 실내 층 단면도 활성화 상태 HUD 배너 */}
         {activeSegment?.indoor && (
