@@ -1,13 +1,51 @@
-/* 
- * Production-ready Clean Angular Interface
- * Zero border-radius (sharp corners), generous whitespace, relaxed typography
+/*
+ * 흑백 기본 + 주황 포인트. 모서리는 아주 약하게만 둥글린다 (pill 형태 금지).
  */
+
+:root {
+  --radius: 3px;
+  --radius-lg: 5px;
+  --accent: #ea580c;
+}
 
 * {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
-  border-radius: 0 !important;
+}
+
+/* 모서리 반경 (작은 요소 3px, 패널·카드 5px) */
+button,
+input,
+.mono-tag,
+.search-tag,
+.step-action-badge,
+.map2d-building-pin,
+.map2d-landmark-chip,
+.map2d-shortcut-badge,
+.map2d-active-step-pin,
+.autocomplete-list {
+  border-radius: var(--radius);
+}
+
+.mode-switcher,
+.route-summary-card,
+.shortcut-highlight-banner,
+.error-banner,
+.note-box,
+.map-pick-notice,
+.map2d-float,
+.map2d-indoor-hud,
+.building-detail-drawer {
+  border-radius: var(--radius-lg);
+}
+
+.mode-switcher {
+  overflow: hidden;
+}
+
+.mode-btn {
+  border-radius: 0;
 }
 
 html,
@@ -17,8 +55,8 @@ body,
   width: 100%;
   background-color: #f8f9fa;
   color: #18181b;
-  font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI',
-    Roboto, 'Malgun Gothic', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
   font-size: 14.5px;
   line-height: 1.65;
   letter-spacing: 0.01em;
@@ -74,18 +112,11 @@ button:hover {
 }
 
 .app-title {
-  font-size: 16px;
-  font-weight: 700;
-  letter-spacing: 0.005em;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
   color: #111827;
-}
-
-.arch-badge {
-  font-size: 12px;
-  padding: 3px 10px;
-  border: 1px solid #d4d4d8;
-  color: #52525b;
-  background-color: #fafafa;
 }
 
 .mode-switcher {
@@ -961,10 +992,11 @@ button:hover {
 
 .map-pick-notice {
   padding: 8px 12px;
-  background-color: #fef3c7;
-  border: 1px solid #d97706;
+  background-color: transparent;
+  border: 1px solid #d4d4d8;
   font-size: 12.5px;
-  color: #92400e;
+  font-weight: 600;
+  color: #111827;
 }
 
 .error-banner {
@@ -1005,32 +1037,33 @@ button:hover {
   color: #52525b;
 }
 
+/* 지름길 안내: 카드 없이 글자색으로만 강조한다 */
 .shortcut-highlight-banner {
-  padding: 10px 12px;
-  background-color: #fff7ed;
-  border: 1px solid #ea580c;
-  color: #9a3412;
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 6px;
   font-size: 12.5px;
+  font-weight: 600;
+  color: #ea580c;
 }
 
 .shortcut-highlight-banner strong {
-  color: #c2410c;
-  font-size: 13px;
+  font-size: 13.5px;
+  font-weight: 700;
 }
 
 .steps-list-container {
   flex: 1;
   overflow-y: auto;
-  padding: 16px 20px 28px;
+  padding: 16px 0 28px;
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
 
 .steps-list-header {
+  padding: 0 20px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1042,32 +1075,41 @@ button:hover {
   color: #71717a;
 }
 
+/* 단계 목록: 카드 없이 좌우를 꽉 채우고 항목 사이에 구분선만 둔다 */
 .steps-list {
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+}
+
+.steps-list > li {
+  border-bottom: 1px solid #e4e4e7;
+}
+
+.steps-list > li:last-child {
+  border-bottom: none;
 }
 
 .step-card-btn {
   width: 100%;
   text-align: left;
-  padding: 12px 14px;
-  border: 1px solid #d4d4d8;
-  background-color: #ffffff;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 0;
+  background-color: transparent;
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
 
-.step-card-shortcut {
-  border-left: 4px solid #ea580c;
+.step-card-btn:hover,
+.step-card-active {
+  background-color: #ececee;
 }
 
-.step-card-active {
-  border-color: #18181b !important;
-  background-color: #f4f4f5 !important;
+.step-card-btn:focus-visible {
   outline: 2px solid #18181b;
+  outline-offset: -2px;
 }
 
 .step-card-top {
@@ -1126,25 +1168,62 @@ button:hover {
   overflow: hidden;
 }
 
-.map2d-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 10px;
-  padding: 10px 20px;
-  background-color: #ffffff;
-  border-bottom: 1px solid #d4d4d8;
-  flex-shrink: 0;
+/* 지도 위 플로팅 패널 (Leaflet 패널보다 위에 둔다) */
+.map2d-float {
+  position: absolute;
+  z-index: 1000;
+  background-color: rgba(255, 255, 255, 0.96);
+  border: 1px solid #d4d4d8;
+  box-shadow: 0 1px 4px rgba(24, 24, 27, 0.14);
+  font-size: 12.5px;
 }
 
-.map2d-legend,
-.map2d-zoom-controls {
+.map2d-float-legend {
+  top: 12px;
+  right: 12px;
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 12px;
-  font-size: 12.5px;
+  gap: 6px 14px;
+  padding: 7px 12px;
+}
+
+.map2d-float-zoom {
+  right: 12px;
+  bottom: 46px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.map2d-zoom-btn {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  font-size: 18px;
+  line-height: 1;
+  background-color: transparent;
+}
+
+.map2d-zoom-btn + .map2d-zoom-btn {
+  border-top: 1px solid #e4e4e7;
+}
+
+.map2d-zoom-btn:hover {
+  background-color: #f4f4f5;
+}
+
+.map2d-float-status {
+  right: 12px;
+  bottom: 12px;
+  display: flex;
+  gap: 10px;
+  padding: 3px 10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11.5px;
+  color: #52525b;
 }
 
 .legend-item {
@@ -1178,44 +1257,81 @@ button:hover {
   flex: 1;
   overflow: hidden;
   background-color: #e4e4e7;
-  cursor: grab;
   user-select: none;
 }
 
-.map2d-viewport:active {
-  cursor: grabbing;
+/* Leaflet 지도 컨테이너 (뷰포트를 가득 채운다) */
+.map2d-leaflet {
+  position: absolute;
+  inset: 0;
+  background-color: #e4e4e7;
+  font: inherit;
 }
 
-.map2d-viewport-picking {
+.map2d-viewport-picking .leaflet-container,
+.map2d-viewport-picking .leaflet-grab,
+.map2d-viewport-picking .leaflet-interactive,
+.map2d-viewport-picking .leaflet-dragging .leaflet-grab {
   cursor: crosshair !important;
 }
 
-.map2d-world {
+/* Leaflet divIcon 마커: 기준점(0,0)에 라벨을 절대 배치하고 앵커별로 이동시킨다 */
+.map2d-lf-marker {
+  background: none;
+  border: none;
+}
+
+.map2d-lf-marker > * {
   position: absolute;
   left: 0;
   top: 0;
-  pointer-events: none;
 }
 
-.map2d-screen-overlay {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  overflow: hidden;
+.map2d-lf-marker.lf-center > * {
+  transform: translate(-50%, -50%);
 }
 
-.map2d-base-image,
-.map2d-fallback-svg,
-.map2d-floor-overlay-image,
-.map2d-routes-svg {
-  position: absolute;
-  left: 0;
-  top: 0;
-  pointer-events: none;
+.map2d-lf-marker.lf-above > * {
+  transform: translate(-50%, calc(-100% - 10px));
 }
 
-.map2d-floor-overlay-image {
-  opacity: 0.88;
+.map2d-lf-marker.lf-above-step > * {
+  transform: translate(-50%, calc(-100% - 12px));
+}
+
+.map2d-lf-marker.lf-below > * {
+  transform: translate(-50%, 12px);
+}
+
+.map2d-lf-marker .map2d-building-dot:hover {
+  transform: translate(-50%, -50%) scale(1.35);
+}
+
+.map2d-lf-marker .map2d-pin {
+  filter: drop-shadow(0 1px 2px rgba(24, 24, 27, 0.4));
+  line-height: 0;
+}
+
+.map2d-pin-body {
+  stroke: #ffffff;
+  stroke-width: 2;
+}
+
+.map2d-pin.pin-from .map2d-pin-body {
+  fill: #18181b;
+}
+
+.map2d-pin.pin-to .map2d-pin-body {
+  fill: var(--accent);
+}
+
+.map2d-lf-marker.lf-above > .map2d-pin {
+  transform: translate(-50%, -100%);
+}
+
+.map2d-lf-marker:focus-visible > * {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
 }
 
 .map2d-building-pin {
@@ -1242,7 +1358,6 @@ button:hover {
   pointer-events: auto;
   width: 9px;
   height: 9px;
-  transform: translate(-50%, -50%);
   background-color: #52525b;
   border: 1.5px solid #ffffff;
   z-index: 3;
@@ -1250,7 +1365,6 @@ button:hover {
 
 .map2d-building-dot:hover {
   background-color: #18181b;
-  transform: translate(-50%, -50%) scale(1.35);
 }
 
 .map2d-shortcut-badge {
@@ -1277,27 +1391,6 @@ button:hover {
   white-space: nowrap;
   pointer-events: none;
   z-index: 2;
-}
-
-.map2d-endpoint-pin {
-  position: absolute;
-  padding: 4px 9px;
-  font-size: 11.5px;
-  font-weight: 700;
-  color: #ffffff;
-  white-space: nowrap;
-  pointer-events: none;
-  z-index: 6;
-}
-
-.pin-from {
-  background-color: #18181b;
-  border: 1.5px solid #ffffff;
-}
-
-.pin-to {
-  background-color: #ea580c;
-  border: 1.5px solid #ffffff;
 }
 
 .map2d-active-step-pin {

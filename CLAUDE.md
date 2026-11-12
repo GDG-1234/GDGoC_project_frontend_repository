@@ -32,7 +32,7 @@ src/
 
 ## 코드 규칙
 
-- 계층 방향: `app → pages → widgets → features → shared`. 하위 계층에서 상위 계층을 import하지 않는다.
+- 계층 방향: `app → pages → widgets → features → shared`. 하위 계층에서 상위 계층을 import하지 않는다. 위젯끼리도 서로 import하지 않고, 공유하는 타입은 `shared/types`에 둔다.
 - 요청/응답에는 항상 `src/shared/types/`에 정의된 TypeScript 인터페이스를 사용한다 (`any` 사용 지양).
 - API 호출은 컴포넌트 안에서 `fetch`를 직접 부르지 않고 `src/shared/api/` 계층을 통해 수행한다.
 - 검색·안내 목록 등 데이터 처리 상태와 지도 렌더링 뷰어 컴포넌트를 분리한다.

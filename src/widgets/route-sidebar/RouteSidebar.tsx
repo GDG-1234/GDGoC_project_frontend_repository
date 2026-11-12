@@ -11,7 +11,7 @@ import {
   StepAction,
 } from '../../shared/types/api';
 
-export type MapPickTarget = 'FROM' | 'TO' | null;
+import { MapPickTarget } from '../../shared/types/ui';
 
 interface RouteSidebarProps {
   fromPlace: PlaceSummary | null;
@@ -30,7 +30,7 @@ interface RouteSidebarProps {
   onToggleAvoidRoad: () => void;
   onChangeMapPickTarget: (target: MapPickTarget) => void;
   onSelectStep: (stepIndex: number) => void;
-  onApplyPreset: (fromId: number, toId: number) => void;
+  onApplyPreset: (fromName: string, toName: string) => void;
 }
 
 const ACTION_LABELS: Record<StepAction, string> = {
@@ -46,10 +46,11 @@ const ACTION_LABELS: Record<StepAction, string> = {
   ARRIVE: '도착',
 };
 
+// 실서버 DB의 ID는 mock과 다를 수 있으므로 ID가 아니라 장소 이름으로 지정한다.
 const QUICK_ROUTE_PRESETS = [
-  { label: '팔정도 → 신공 4142호', fromId: 101, toId: 12 },
-  { label: '혜화관 3층 → 경영관 3층', fromId: 51, toId: 61 },
-  { label: '후문 → 명진관 1층', fromId: 104, toId: 21 },
+  { label: '팔정도 → 신공 4142호', from: '팔정도', to: '신공학관 4142호' },
+  { label: '혜화관 3층 → 경영관 3층', from: '혜화관 3층', to: '경영관 3층' },
+  { label: '후문 → 명진관 1층', from: '후문', to: '명진관 1층' },
 ];
 
 export const RouteSidebar: React.FC<RouteSidebarProps> = ({
@@ -138,7 +139,7 @@ export const RouteSidebar: React.FC<RouteSidebarProps> = ({
               key={preset.label}
               type="button"
               className="strip-btn"
-              onClick={() => onApplyPreset(preset.fromId, preset.toId)}
+              onClick={() => onApplyPreset(preset.from, preset.to)}
             >
               {preset.label}
             </button>
@@ -149,10 +150,13 @@ export const RouteSidebar: React.FC<RouteSidebarProps> = ({
           {/* 출발지 입력 */}
           <div className="search-field-wrap">
             <div className="search-input-row">
-              <span className="search-tag">출발</span>
+              <span className="search-tag" aria-hidden="true">출발</span>
               <input
                 type="text"
                 className="sharp-input search-input-flex"
+                aria-label="출발지 검색"
+                aria-autocomplete="list"
+                aria-expanded={focusedInput === 'FROM' && fromResults.length > 0}
                 placeholder="출발지 검색 (예: 팔정도, 후문, 혜화)"
                 value={fromQuery}
                 onFocus={() => setFocusedInput('FROM')}
@@ -167,6 +171,7 @@ export const RouteSidebar: React.FC<RouteSidebarProps> = ({
                 onClick={() =>
                   onChangeMapPickTarget(mapPickTarget === 'FROM' ? null : 'FROM')
                 }
+                aria-pressed={mapPickTarget === 'FROM'}
                 title="지도를 클릭하여 가장 가까운 출발지 선택"
               >
                 지도선택
@@ -174,7 +179,7 @@ export const RouteSidebar: React.FC<RouteSidebarProps> = ({
             </div>
 
             {focusedInput === 'FROM' && fromResults.length > 0 && (
-              <ul className="autocomplete-list" role="listbox">
+              <ul className="autocomplete-list" aria-label="장소 검색 결과">
                 {fromResults.map((item) => (
                   <li key={item.id}>
                     <button
@@ -204,6 +209,9 @@ export const RouteSidebar: React.FC<RouteSidebarProps> = ({
               <input
                 type="text"
                 className="sharp-input search-input-flex"
+                aria-label="도착지 검색"
+                aria-autocomplete="list"
+                aria-expanded={focusedInput === 'TO' && toResults.length > 0}
                 placeholder="도착지 검색 (예: 신공 41, 경영관)"
                 value={toQuery}
                 onFocus={() => setFocusedInput('TO')}
@@ -214,6 +222,7 @@ export const RouteSidebar: React.FC<RouteSidebarProps> = ({
                 type="button"
                 className="swap-btn"
                 onClick={onSwapPlaces}
+                aria-label="출발지와 도착지 바꾸기"
                 title="출발지와 도착지 바꾸기"
               >
                 ⇅
@@ -226,6 +235,7 @@ export const RouteSidebar: React.FC<RouteSidebarProps> = ({
                 onClick={() =>
                   onChangeMapPickTarget(mapPickTarget === 'TO' ? null : 'TO')
                 }
+                aria-pressed={mapPickTarget === 'TO'}
                 title="지도를 클릭하여 가장 가까운 도착지 선택"
               >
                 지도선택
@@ -233,7 +243,7 @@ export const RouteSidebar: React.FC<RouteSidebarProps> = ({
             </div>
 
             {focusedInput === 'TO' && toResults.length > 0 && (
-              <ul className="autocomplete-list" role="listbox">
+              <ul className="autocomplete-list" aria-label="장소 검색 결과">
                 {toResults.map((item) => (
                   <li key={item.id}>
                     <button
@@ -262,6 +272,8 @@ export const RouteSidebar: React.FC<RouteSidebarProps> = ({
           <div className="mode-radio-group" role="radiogroup" aria-label="경로 기준">
             <button
               type="button"
+              role="radio"
+              aria-checked={mode === 'FASTEST'}
               onClick={() => onChangeMode('FASTEST')}
               className={`filter-btn ${
                 mode === 'FASTEST' ? 'filter-btn-active' : ''
@@ -271,6 +283,8 @@ export const RouteSidebar: React.FC<RouteSidebarProps> = ({
             </button>
             <button
               type="button"
+              role="radio"
+              aria-checked={mode === 'EASIEST'}
               onClick={() => onChangeMode('EASIEST')}
               className={`filter-btn ${
                 mode === 'EASIEST' ? 'filter-btn-active' : ''
@@ -291,7 +305,7 @@ export const RouteSidebar: React.FC<RouteSidebarProps> = ({
         </div>
 
         {mapPickTarget && (
-          <div className="map-pick-notice">
+          <div className="map-pick-notice" role="status">
             지도 위 원하는 위치를 클릭하면 가장 가까운 장소가{' '}
             <strong>{mapPickTarget === 'FROM' ? '출발지' : '도착지'}</strong>로
             지정됩니다. (`/places/nearest`)
@@ -314,7 +328,7 @@ export const RouteSidebar: React.FC<RouteSidebarProps> = ({
                 {formatDurationText(summary.totalSeconds)}
               </span>
               <span className="summary-sub">
-                ({summary.totalSeconds}초 · {summary.totalKcal} kcal)
+                ({summary.totalKcal} kcal)
               </span>
             </div>
             <span className="mono-tag">
@@ -324,13 +338,10 @@ export const RouteSidebar: React.FC<RouteSidebarProps> = ({
           </div>
 
           {summary.usesShortcut && (
-            <div className="shortcut-highlight-banner">
+            <div className="shortcut-highlight-banner"> 
               <strong>★ 학교 지름길 포함 경로</strong>
               {summary.savedSeconds !== null && summary.savedSeconds > 0 && (
-                <span>
-                  일반 길보다 {formatDurationText(summary.savedSeconds)} (
-                  {summary.savedSeconds}초) 빨라요!
-                </span>
+                <span>({formatDurationText(summary.savedSeconds)} 빨라요)</span>
               )}
             </div>
           )}
@@ -345,7 +356,9 @@ export const RouteSidebar: React.FC<RouteSidebarProps> = ({
         </div>
 
         {isLoading ? (
-          <div className="note-box">경로를 계산하고 있습니다...</div>
+          <div className="note-box" role="status" aria-live="polite">
+            경로를 계산하고 있습니다...
+          </div>
         ) : steps.length === 0 ? (
           <div className="note-box">
             출발지와 도착지를 선택하면 단계별 길안내가 표시됩니다.
@@ -361,6 +374,7 @@ export const RouteSidebar: React.FC<RouteSidebarProps> = ({
                 <li key={step.index}>
                   <button
                     type="button"
+                    aria-current={isSelected ? 'step' : undefined}
                     onClick={() => onSelectStep(step.index)}
                     className={`step-card-btn ${
                       isSelected ? 'step-card-active' : ''

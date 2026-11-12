@@ -77,13 +77,15 @@ async function requestJson<T>(
   let response: Response;
 
   try {
-    response = await fetch(url, {
-      ...options,
-      headers: {
-        'Content-Type': 'application/json; charset=utf-8',
-        ...(options?.headers || {}),
-      },
-    });
+    // Content-Type은 본문이 있는 요청에만 붙인다.
+    // (GET에 붙이면 불필요한 CORS preflight(OPTIONS) 요청이 발생한다)
+    const headers: Record<string, string> = {
+      ...((options?.headers as Record<string, string> | undefined) || {}),
+    };
+    if (options?.body !== undefined) {
+      headers['Content-Type'] = 'application/json; charset=utf-8';
+    }
+    response = await fetch(url, { ...options, headers });
   } catch (err) {
     throw new ApiClientError(
       500,
