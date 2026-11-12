@@ -150,10 +150,13 @@ export const RouteSidebar: React.FC<RouteSidebarProps> = ({
           {/* 출발지 입력 */}
           <div className="search-field-wrap">
             <div className="search-input-row">
-              <span className="search-tag">출발</span>
+              <span className="search-tag" aria-hidden="true">출발</span>
               <input
                 type="text"
                 className="sharp-input search-input-flex"
+                aria-label="출발지 검색"
+                aria-autocomplete="list"
+                aria-expanded={focusedInput === 'FROM' && fromResults.length > 0}
                 placeholder="출발지 검색 (예: 팔정도, 후문, 혜화)"
                 value={fromQuery}
                 onFocus={() => setFocusedInput('FROM')}
@@ -168,6 +171,7 @@ export const RouteSidebar: React.FC<RouteSidebarProps> = ({
                 onClick={() =>
                   onChangeMapPickTarget(mapPickTarget === 'FROM' ? null : 'FROM')
                 }
+                aria-pressed={mapPickTarget === 'FROM'}
                 title="지도를 클릭하여 가장 가까운 출발지 선택"
               >
                 지도선택
@@ -175,7 +179,7 @@ export const RouteSidebar: React.FC<RouteSidebarProps> = ({
             </div>
 
             {focusedInput === 'FROM' && fromResults.length > 0 && (
-              <ul className="autocomplete-list" role="listbox">
+              <ul className="autocomplete-list" aria-label="장소 검색 결과">
                 {fromResults.map((item) => (
                   <li key={item.id}>
                     <button
@@ -205,6 +209,9 @@ export const RouteSidebar: React.FC<RouteSidebarProps> = ({
               <input
                 type="text"
                 className="sharp-input search-input-flex"
+                aria-label="도착지 검색"
+                aria-autocomplete="list"
+                aria-expanded={focusedInput === 'TO' && toResults.length > 0}
                 placeholder="도착지 검색 (예: 신공 41, 경영관)"
                 value={toQuery}
                 onFocus={() => setFocusedInput('TO')}
@@ -215,6 +222,7 @@ export const RouteSidebar: React.FC<RouteSidebarProps> = ({
                 type="button"
                 className="swap-btn"
                 onClick={onSwapPlaces}
+                aria-label="출발지와 도착지 바꾸기"
                 title="출발지와 도착지 바꾸기"
               >
                 ⇅
@@ -227,6 +235,7 @@ export const RouteSidebar: React.FC<RouteSidebarProps> = ({
                 onClick={() =>
                   onChangeMapPickTarget(mapPickTarget === 'TO' ? null : 'TO')
                 }
+                aria-pressed={mapPickTarget === 'TO'}
                 title="지도를 클릭하여 가장 가까운 도착지 선택"
               >
                 지도선택
@@ -234,7 +243,7 @@ export const RouteSidebar: React.FC<RouteSidebarProps> = ({
             </div>
 
             {focusedInput === 'TO' && toResults.length > 0 && (
-              <ul className="autocomplete-list" role="listbox">
+              <ul className="autocomplete-list" aria-label="장소 검색 결과">
                 {toResults.map((item) => (
                   <li key={item.id}>
                     <button
@@ -263,6 +272,8 @@ export const RouteSidebar: React.FC<RouteSidebarProps> = ({
           <div className="mode-radio-group" role="radiogroup" aria-label="경로 기준">
             <button
               type="button"
+              role="radio"
+              aria-checked={mode === 'FASTEST'}
               onClick={() => onChangeMode('FASTEST')}
               className={`filter-btn ${
                 mode === 'FASTEST' ? 'filter-btn-active' : ''
@@ -272,6 +283,8 @@ export const RouteSidebar: React.FC<RouteSidebarProps> = ({
             </button>
             <button
               type="button"
+              role="radio"
+              aria-checked={mode === 'EASIEST'}
               onClick={() => onChangeMode('EASIEST')}
               className={`filter-btn ${
                 mode === 'EASIEST' ? 'filter-btn-active' : ''
@@ -292,7 +305,7 @@ export const RouteSidebar: React.FC<RouteSidebarProps> = ({
         </div>
 
         {mapPickTarget && (
-          <div className="map-pick-notice">
+          <div className="map-pick-notice" role="status">
             지도 위 원하는 위치를 클릭하면 가장 가까운 장소가{' '}
             <strong>{mapPickTarget === 'FROM' ? '출발지' : '도착지'}</strong>로
             지정됩니다. (`/places/nearest`)
@@ -346,7 +359,9 @@ export const RouteSidebar: React.FC<RouteSidebarProps> = ({
         </div>
 
         {isLoading ? (
-          <div className="note-box">경로를 계산하고 있습니다...</div>
+          <div className="note-box" role="status" aria-live="polite">
+            경로를 계산하고 있습니다...
+          </div>
         ) : steps.length === 0 ? (
           <div className="note-box">
             출발지와 도착지를 선택하면 단계별 길안내가 표시됩니다.
@@ -362,6 +377,7 @@ export const RouteSidebar: React.FC<RouteSidebarProps> = ({
                 <li key={step.index}>
                   <button
                     type="button"
+                    aria-current={isSelected ? 'step' : undefined}
                     onClick={() => onSelectStep(step.index)}
                     className={`step-card-btn ${
                       isSelected ? 'step-card-active' : ''

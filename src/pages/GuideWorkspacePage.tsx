@@ -240,6 +240,7 @@ export const GuideWorkspacePage: React.FC = () => {
         <div className="mode-switcher" role="group" aria-label="API 데이터 소스 전환">
           <button
             type="button"
+            aria-pressed={useMock}
             onClick={() => handleToggleMockMode(true)}
             className={`mode-btn ${useMock ? 'mode-btn-active' : ''}`}
           >
@@ -247,6 +248,7 @@ export const GuideWorkspacePage: React.FC = () => {
           </button>
           <button
             type="button"
+            aria-pressed={!useMock}
             onClick={() => handleToggleMockMode(false)}
             className={`mode-btn ${!useMock ? 'mode-btn-active' : ''}`}
           >
