@@ -217,12 +217,31 @@ export const Map2DViewer: React.FC<Map2DViewerProps> = ({
     }
   };
 
-  const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    const factor = e.deltaY < 0 ? 1.15 : 0.87;
-    const next = Math.max(minScale, Math.min(maxScale, scale * factor));
-    setScale(Number(next.toFixed(2)));
-  };
+  // 뷰포트 밖에서 마우스를 놓아도 드래그가 끝나도록 window에서 mouseup을 감지한다.
+  // (뷰포트 안에서 놓은 경우는 handleMouseUp이 먼저 처리하므로 여기서는 무시된다)
+  useEffect(() => {
+    const endDrag = () => {
+      dragRef.current.isDragging = false;
+    };
+    window.addEventListener('mouseup', endDrag);
+    return () => window.removeEventListener('mouseup', endDrag);
+  }, []);
+
+  // 휠 줌: React의 onWheel은 passive라 preventDefault가 동작하지 않으므로
+  // 네이티브 리스너를 passive: false로 직접 등록한다.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const factor = e.deltaY < 0 ? 1.15 : 0.87;
+      setScale((s) =>
+        Number(Math.max(minScale, Math.min(maxScale, s * factor)).toFixed(2))
+      );
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, [minScale, maxScale]);
 
   // 지도 픽셀 원점(0,0)이 화면에 놓일 오프셋 계산
   const translateX = viewportSize.w / 2 - center.x * scale;
@@ -315,7 +334,8 @@ export const Map2DViewer: React.FC<Map2DViewerProps> = ({
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
-        onWheel={handleWheel}
+        role="application"
+        aria-label="캠퍼스 지도 (드래그로 이동, 휠로 확대·축소)"
       >
         {/* 1. 픽셀 좌표계 월드 레이어 (배경 이미지 + 단면도 + 경로 SVG 선) */}
         <div
