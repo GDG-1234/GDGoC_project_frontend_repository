@@ -134,23 +134,25 @@ export const RouteSidebar: React.FC<RouteSidebarProps> = ({
       <div className="sidebar-search-section">
         <div className="preset-row">
           <span className="filter-label">검증 루트</span>
+          <span>
           {QUICK_ROUTE_PRESETS.map((preset) => (
             <button
               key={preset.label}
               type="button"
-              className="strip-btn"
+              className="preset-link"
               onClick={() => onApplyPreset(preset.from, preset.to)}
             >
               {preset.label}
             </button>
           ))}
+          </span>
         </div>
 
         <div className="search-inputs-box">
           {/* 출발지 입력 */}
           <div className="search-field-wrap">
             <div className="search-input-row">
-              <span className="search-tag" aria-hidden="true">출발</span>
+              <span className="search-label" aria-hidden="true">출발</span>
               <input
                 type="text"
                 className="sharp-input search-input-flex"
@@ -165,9 +167,7 @@ export const RouteSidebar: React.FC<RouteSidebarProps> = ({
               />
               <button
                 type="button"
-                className={`map-pick-btn ${
-                  mapPickTarget === 'FROM' ? 'filter-btn-active' : ''
-                }`}
+                className="text-btn"
                 onClick={() =>
                   onChangeMapPickTarget(mapPickTarget === 'FROM' ? null : 'FROM')
                 }
@@ -205,7 +205,9 @@ export const RouteSidebar: React.FC<RouteSidebarProps> = ({
           {/* 도착지 입력 + 스왑 버튼 */}
           <div className="search-field-wrap">
             <div className="search-input-row">
-              <span className="search-tag search-tag-to">도착</span>
+              <span className="search-label search-label-to" aria-hidden="true">
+                도착
+              </span>
               <input
                 type="text"
                 className="sharp-input search-input-flex"
@@ -220,7 +222,7 @@ export const RouteSidebar: React.FC<RouteSidebarProps> = ({
               />
               <button
                 type="button"
-                className="swap-btn"
+                className="text-btn text-btn-icon"
                 onClick={onSwapPlaces}
                 aria-label="출발지와 도착지 바꾸기"
                 title="출발지와 도착지 바꾸기"
@@ -229,9 +231,7 @@ export const RouteSidebar: React.FC<RouteSidebarProps> = ({
               </button>
               <button
                 type="button"
-                className={`map-pick-btn ${
-                  mapPickTarget === 'TO' ? 'filter-btn-active' : ''
-                }`}
+                className="text-btn"
                 onClick={() =>
                   onChangeMapPickTarget(mapPickTarget === 'TO' ? null : 'TO')
                 }
@@ -269,28 +269,30 @@ export const RouteSidebar: React.FC<RouteSidebarProps> = ({
 
         {/* 경로 탐색 옵션 (POST /routes options) */}
         <div className="route-options-bar">
-          <div className="mode-radio-group" role="radiogroup" aria-label="경로 기준">
+          <div className="mode-switcher" role="radiogroup" aria-label="경로 기준">
             <button
               type="button"
               role="radio"
               aria-checked={mode === 'FASTEST'}
               onClick={() => onChangeMode('FASTEST')}
-              className={`filter-btn ${
-                mode === 'FASTEST' ? 'filter-btn-active' : ''
+              title="시간이 가장 적게 걸리는 길"
+              className={`mode-btn ${
+                mode === 'FASTEST' ? 'mode-btn-active' : ''
               }`}
             >
-              ○ 빠른 길 (시간 최소)
+              빠른 길
             </button>
             <button
               type="button"
               role="radio"
               aria-checked={mode === 'EASIEST'}
               onClick={() => onChangeMode('EASIEST')}
-              className={`filter-btn ${
-                mode === 'EASIEST' ? 'filter-btn-active' : ''
+              title="덜 힘든(칼로리가 적게 드는) 길"
+              className={`mode-btn ${
+                mode === 'EASIEST' ? 'mode-btn-active' : ''
               }`}
             >
-              ○ 편한 길 (칼로리 최소)
+              편한 길
             </button>
           </div>
 
