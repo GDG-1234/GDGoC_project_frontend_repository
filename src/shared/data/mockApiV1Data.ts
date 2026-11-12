@@ -536,6 +536,16 @@ export function findNearestMockPlace(params: {
   };
 }
 
+// 건물/층에 해당하는 층 단면도 URL (없으면 null, 실외(floor 0)도 null)
+function findMockFloorImageUrl(
+  buildingId: number | null,
+  floor: number
+): string | null {
+  if (buildingId === null || floor === 0) return null;
+  const detail = MOCK_BUILDING_DETAILS[buildingId];
+  return detail?.floors.find((f) => f.floor === floor)?.floorImageUrl ?? null;
+}
+
 // 경로 계산 Mock 함수
 export function calculateMockRoute(req: RouteRequest): RouteResponse {
   const fromPlace = MOCK_PLACES.find((p) => p.id === req.from.placeId);
@@ -937,9 +947,10 @@ export function calculateMockRoute(req: RouteRequest): RouteResponse {
       totalKcal,
       floorChanges:
         (fromPlace.floor !== 0 ? 1 : 0) + (toPlace.floor !== 0 ? 1 : 0),
-      usesRoad: !avoidRoad,
-      usesShortcut: true,
-      savedSeconds: compare ? Math.round(totalSeconds * 0.28) : null,
+      // 일반 경로 mock은 차도·지름길 구간을 만들지 않는다. (명세: 지름길이 없으면 usesShortcut=false, savedSeconds=null)
+      usesRoad: false,
+      usesShortcut: false,
+      savedSeconds: null,
     },
     segments: [
       {
@@ -947,8 +958,7 @@ export function calculateMockRoute(req: RouteRequest): RouteResponse {
         indoor: fromPlace.floor !== 0,
         buildingId: fromPlace.buildingId,
         floor: fromPlace.floor,
-        floorImageUrl:
-          fromPlace.floor !== 0 ? '/static/floor/shingong_1.png' : null,
+        floorImageUrl: findMockFloorImageUrl(fromPlace.buildingId, fromPlace.floor),
         isShortcut: false,
         name: null,
         points: [
@@ -961,10 +971,9 @@ export function calculateMockRoute(req: RouteRequest): RouteResponse {
         indoor: toPlace.floor !== 0,
         buildingId: toPlace.buildingId,
         floor: toPlace.floor,
-        floorImageUrl:
-          toPlace.floor !== 0 ? '/static/floor/shingong_4.png' : null,
-        isShortcut: true,
-        name: '캠퍼스 보행자 지름길 구간',
+        floorImageUrl: findMockFloorImageUrl(toPlace.buildingId, toPlace.floor),
+        isShortcut: false,
+        name: null,
         points: [
           { nodeId: 902, x: midX, y: midY },
           { nodeId: 903, x: toPlace.position.x, y: toPlace.position.y },
@@ -983,7 +992,7 @@ export function calculateMockRoute(req: RouteRequest): RouteResponse {
       },
       {
         index: 1,
-        action: mode === 'EASIEST' ? 'WALK' : 'UPHILL',
+        action: 'WALK',
         text: `${avoidRoad ? '차도를 피해 보행 전용 길로' : '캠퍼스 주 보행로를 따라'} 약 ${Math.round(
           totalSeconds * 0.55
         )}초 이동`,
@@ -995,7 +1004,7 @@ export function calculateMockRoute(req: RouteRequest): RouteResponse {
       {
         index: 2,
         action: toPlace.floor > 1 ? 'ELEVATOR' : 'WALK',
-        text: `★ 지름길 구간을 통과해 ${toPlace.name} 방향으로 이동`,
+        text: `${toPlace.name} 방향으로 이동`,
         position: {
           x: Math.round((midX + toPlace.position.x) / 2),
           y: Math.round((midY + toPlace.position.y) / 2),
