@@ -1178,44 +1178,59 @@ button:hover {
   flex: 1;
   overflow: hidden;
   background-color: #e4e4e7;
-  cursor: grab;
   user-select: none;
 }
 
-.map2d-viewport:active {
-  cursor: grabbing;
+/* Leaflet 지도 컨테이너 (뷰포트를 가득 채운다) */
+.map2d-leaflet {
+  position: absolute;
+  inset: 0;
+  background-color: #e4e4e7;
+  font: inherit;
 }
 
-.map2d-viewport-picking {
+.map2d-viewport-picking .leaflet-container,
+.map2d-viewport-picking .leaflet-grab,
+.map2d-viewport-picking .leaflet-interactive,
+.map2d-viewport-picking .leaflet-dragging .leaflet-grab {
   cursor: crosshair !important;
 }
 
-.map2d-world {
+/* Leaflet divIcon 마커: 기준점(0,0)에 라벨을 절대 배치하고 앵커별로 이동시킨다 */
+.map2d-lf-marker {
+  background: none;
+  border: none;
+}
+
+.map2d-lf-marker > * {
   position: absolute;
   left: 0;
   top: 0;
-  pointer-events: none;
 }
 
-.map2d-screen-overlay {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  overflow: hidden;
+.map2d-lf-marker.lf-center > * {
+  transform: translate(-50%, -50%);
 }
 
-.map2d-base-image,
-.map2d-fallback-svg,
-.map2d-floor-overlay-image,
-.map2d-routes-svg {
-  position: absolute;
-  left: 0;
-  top: 0;
-  pointer-events: none;
+.map2d-lf-marker.lf-above > * {
+  transform: translate(-50%, calc(-100% - 10px));
 }
 
-.map2d-floor-overlay-image {
-  opacity: 0.88;
+.map2d-lf-marker.lf-above-step > * {
+  transform: translate(-50%, calc(-100% - 12px));
+}
+
+.map2d-lf-marker.lf-below > * {
+  transform: translate(-50%, 12px);
+}
+
+.map2d-lf-marker .map2d-building-dot:hover {
+  transform: translate(-50%, -50%) scale(1.35);
+}
+
+.map2d-lf-marker:focus-visible > * {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
 }
 
 .map2d-building-pin {
@@ -1242,7 +1257,6 @@ button:hover {
   pointer-events: auto;
   width: 9px;
   height: 9px;
-  transform: translate(-50%, -50%);
   background-color: #52525b;
   border: 1.5px solid #ffffff;
   z-index: 3;
@@ -1250,7 +1264,6 @@ button:hover {
 
 .map2d-building-dot:hover {
   background-color: #18181b;
-  transform: translate(-50%, -50%) scale(1.35);
 }
 
 .map2d-shortcut-badge {
