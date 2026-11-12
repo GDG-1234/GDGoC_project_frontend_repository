@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { formatFloorLabel } from '../../shared/api/apiClient';
-import { MOCK_PLACES } from '../../shared/data/mockApiV1Data';
 import {
   BuildingSummary,
   MapInfoResponse,
@@ -8,11 +7,16 @@ import {
   Point,
   RouteResponse,
 } from '../../shared/types/api';
-import { MapPickTarget } from '../route-sidebar/RouteSidebar';
+import { MapPickTarget } from '../../shared/types/ui';
+
+// 핀/버튼 위에서 시작한 마우스 이벤트가 지도 드래그·클릭으로 번지지 않도록 막는다.
+const stopMapPointer = (e: React.SyntheticEvent) => e.stopPropagation();
 
 interface Map2DViewerProps {
   mapInfo: MapInfoResponse;
   buildings: BuildingSummary[];
+  /** 보조 라벨로 표시할 랜드마크/출입구 (데이터 소스는 상위에서 결정) */
+  landmarks: PlaceSummary[];
   fromPlace: PlaceSummary | null;
   toPlace: PlaceSummary | null;
   routeResult: RouteResponse | null;
@@ -27,6 +31,7 @@ interface Map2DViewerProps {
 export const Map2DViewer: React.FC<Map2DViewerProps> = ({
   mapInfo,
   buildings,
+  landmarks,
   fromPlace,
   toPlace,
   routeResult,
@@ -84,6 +89,13 @@ export const Map2DViewer: React.FC<Map2DViewerProps> = ({
     return () => window.removeEventListener('resize', updateSize);
   }, []);
 
+  // 맞춤 계산은 경로가 바뀔 때만 실행하고, 최신 뷰포트 크기는 ref로 읽는다.
+  // (창 크기가 바뀔 때마다 다시 맞추면 사용자가 옮긴 위치가 초기화된다)
+  const viewportRef = useRef(viewportSize);
+  viewportRef.current = viewportSize;
+  // 단계 이동 effect가 "방금 경로가 바뀐 실행"인지 구분하기 위한 ref
+  const stepRouteRef = useRef<RouteResponse | null>(null);
+
   // 경로 결과가 바뀌면 전체 경로가 한눈에 들어오도록 뷰포트 자동 맞춤
   useEffect(() => {
     if (!routeResult || routeResult.segments.length === 0) return;
@@ -104,16 +116,22 @@ export const Map2DViewer: React.FC<Map2DViewerProps> = ({
 
     const spanX = Math.max(480, maxX - minX + 420);
     const spanY = Math.max(480, maxY - minY + 420);
+    const { w, h } = viewportRef.current;
     const nextScale = Math.min(
       maxScale,
-      Math.max(minScale, Math.min(viewportSize.w / spanX, viewportSize.h / spanY))
+      Math.max(minScale, Math.min(w / spanX, h / spanY))
     );
     setScale(Number(nextScale.toFixed(2)));
-  }, [routeResult, viewportSize.w, viewportSize.h, minScale, maxScale]);
+  }, [routeResult, minScale, maxScale]);
 
   // 단계(step) 클릭 시 해당 위치로 지도 중심 이동
   useEffect(() => {
     if (activeStepIndex === null || !routeResult) return;
+    // 새 경로가 도착한 직후에는 위의 "전체 경로 맞춤"이 우선이므로 건너뛴다.
+    if (stepRouteRef.current !== routeResult) {
+      stepRouteRef.current = routeResult;
+      return;
+    }
     const targetStep = routeResult.steps.find((s) => s.index === activeStepIndex);
     if (targetStep) {
       setCenter({
@@ -513,7 +531,7 @@ export const Map2DViewer: React.FC<Map2DViewerProps> = ({
           {/* (A) 보조 랜드마크/출입문 라벨: 주변 라벨 켜짐 & 적당한 확대 배율일 때만 표시 */}
           {showPlaceLabels &&
             !isZoomedOut &&
-            MOCK_PLACES.filter(
+            landmarks.filter(
               (p) =>
                 (p.category === 'LANDMARK' || p.category === 'ENTRANCE') &&
                 p.id !== fromPlace?.id &&
@@ -547,6 +565,8 @@ export const Map2DViewer: React.FC<Map2DViewerProps> = ({
                     key={b.id}
                     type="button"
                     title={b.name}
+                    onMouseDown={stopMapPointer}
+                    onMouseUp={stopMapPointer}
                     onClick={(e) => {
                       e.stopPropagation();
                       onSelectBuilding(b.id);
@@ -564,6 +584,8 @@ export const Map2DViewer: React.FC<Map2DViewerProps> = ({
                 <button
                   key={b.id}
                   type="button"
+                  onMouseDown={stopMapPointer}
+                  onMouseUp={stopMapPointer}
                   onClick={(e) => {
                     e.stopPropagation();
                     onSelectBuilding(b.id);
@@ -646,6 +668,8 @@ export const Map2DViewer: React.FC<Map2DViewerProps> = ({
             activeStep.action !== 'ARRIVE' && (
               <button
                 type="button"
+                onMouseDown={stopMapPointer}
+                onMouseUp={stopMapPointer}
                 onClick={(e) => {
                   e.stopPropagation();
                   onSelectStep(activeStep.index);

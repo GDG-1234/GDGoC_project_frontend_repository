@@ -11,7 +11,7 @@ import {
   StepAction,
 } from '../../shared/types/api';
 
-export type MapPickTarget = 'FROM' | 'TO' | null;
+import { MapPickTarget } from '../../shared/types/ui';
 
 interface RouteSidebarProps {
   fromPlace: PlaceSummary | null;
@@ -30,7 +30,7 @@ interface RouteSidebarProps {
   onToggleAvoidRoad: () => void;
   onChangeMapPickTarget: (target: MapPickTarget) => void;
   onSelectStep: (stepIndex: number) => void;
-  onApplyPreset: (fromId: number, toId: number) => void;
+  onApplyPreset: (fromName: string, toName: string) => void;
 }
 
 const ACTION_LABELS: Record<StepAction, string> = {
@@ -46,10 +46,11 @@ const ACTION_LABELS: Record<StepAction, string> = {
   ARRIVE: '도착',
 };
 
+// 실서버 DB의 ID는 mock과 다를 수 있으므로 ID가 아니라 장소 이름으로 지정한다.
 const QUICK_ROUTE_PRESETS = [
-  { label: '팔정도 → 신공 4142호', fromId: 101, toId: 12 },
-  { label: '혜화관 3층 → 경영관 3층', fromId: 51, toId: 61 },
-  { label: '후문 → 명진관 1층', fromId: 104, toId: 21 },
+  { label: '팔정도 → 신공 4142호', from: '팔정도', to: '신공학관 4142호' },
+  { label: '혜화관 3층 → 경영관 3층', from: '혜화관 3층', to: '경영관 3층' },
+  { label: '후문 → 명진관 1층', from: '후문', to: '명진관 1층' },
 ];
 
 export const RouteSidebar: React.FC<RouteSidebarProps> = ({
@@ -138,7 +139,7 @@ export const RouteSidebar: React.FC<RouteSidebarProps> = ({
               key={preset.label}
               type="button"
               className="strip-btn"
-              onClick={() => onApplyPreset(preset.fromId, preset.toId)}
+              onClick={() => onApplyPreset(preset.from, preset.to)}
             >
               {preset.label}
             </button>
