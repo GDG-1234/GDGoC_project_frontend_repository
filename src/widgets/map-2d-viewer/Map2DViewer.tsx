@@ -39,16 +39,21 @@ export const Map2DViewer: React.FC<Map2DViewerProps> = ({
 }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
 
-  // 뷰포트 상태: center (픽셀 좌표 x, y) 및 scale (화면 픽셀 / 지도 픽셀)
+  // 뷰포트 상태: center (지도 픽셀 좌표 x, y) 및 scale (화면 픽셀 / 지도 픽셀)
   const [center, setCenter] = useState<Point>(mapInfo.defaultCenter);
-  const [scale, setScale] = useState<number>(0.42);
+  const [scale, setScale] = useState<number>(0.48);
   const [viewportSize, setViewportSize] = useState<{ w: number; h: number }>({
     w: 900,
     h: 640,
   });
   const [hoverPixel, setHoverPixel] = useState<Point | null>(null);
+  const [showPlaceLabels, setShowPlaceLabels] = useState<boolean>(true);
   const [mapImgLoaded, setMapImgLoaded] = useState<boolean>(false);
   const [floorImgLoaded, setFloorImgLoaded] = useState<boolean>(false);
+
+  // GET /map의 minZoom, maxZoom을 픽셀 스케일 범위(2^minZoom ~ 2^maxZoom)로 변환
+  const minScale = Math.pow(2, mapInfo.minZoom);
+  const maxScale = Math.pow(2, mapInfo.maxZoom);
 
   const dragRef = useRef<{
     isDragging: boolean;
@@ -79,10 +84,6 @@ export const Map2DViewer: React.FC<Map2DViewerProps> = ({
     return () => window.removeEventListener('resize', updateSize);
   }, []);
 
-  // GET /map의 minZoom, maxZoom을 픽셀 스케일 범위(2^minZoom ~ 2^maxZoom)로 변환
-  const minScale = Math.pow(2, mapInfo.minZoom);
-  const maxScale = Math.pow(2, mapInfo.maxZoom);
-
   // 경로 결과가 바뀌면 전체 경로가 한눈에 들어오도록 뷰포트 자동 맞춤
   useEffect(() => {
     if (!routeResult || routeResult.segments.length === 0) return;
@@ -101,8 +102,8 @@ export const Map2DViewer: React.FC<Map2DViewerProps> = ({
       y: Math.round((minY + maxY) / 2),
     });
 
-    const spanX = Math.max(400, maxX - minX + 360);
-    const spanY = Math.max(400, maxY - minY + 360);
+    const spanX = Math.max(480, maxX - minX + 420);
+    const spanY = Math.max(480, maxY - minY + 420);
     const nextScale = Math.min(
       maxScale,
       Math.max(minScale, Math.min(viewportSize.w / spanX, viewportSize.h / spanY))
@@ -110,7 +111,7 @@ export const Map2DViewer: React.FC<Map2DViewerProps> = ({
     setScale(Number(nextScale.toFixed(2)));
   }, [routeResult, viewportSize.w, viewportSize.h, minScale, maxScale]);
 
-  // 단계(step) 클릭 시 해당 위치로 지도 중심 이동 (규칙 3)
+  // 단계(step) 클릭 시 해당 위치로 지도 중심 이동
   useEffect(() => {
     if (activeStepIndex === null || !routeResult) return;
     const targetStep = routeResult.steps.find((s) => s.index === activeStepIndex);
@@ -170,11 +171,17 @@ export const Map2DViewer: React.FC<Map2DViewerProps> = ({
     setCenter({
       x: Math.max(
         0,
-        Math.min(mapInfo.width, Math.round(dragRef.current.startCenterX - dx / scale))
+        Math.min(
+          mapInfo.width,
+          Math.round(dragRef.current.startCenterX - dx / scale)
+        )
       ),
       y: Math.max(
         0,
-        Math.min(mapInfo.height, Math.round(dragRef.current.startCenterY - dy / scale))
+        Math.min(
+          mapInfo.height,
+          Math.round(dragRef.current.startCenterY - dy / scale)
+        )
       ),
     });
   };
@@ -186,7 +193,6 @@ export const Map2DViewer: React.FC<Map2DViewerProps> = ({
       e.clientX - dragRef.current.startClientX,
       e.clientY - dragRef.current.startClientY
     );
-    // 드래그가 아닌 클릭일 경우: 지도 클릭 장소 선택 호출
     if (moved < 5) {
       const pt = clientToMapPixel(e.clientX, e.clientY);
       onMapPixelClick(pt.x, pt.y);
@@ -204,6 +210,20 @@ export const Map2DViewer: React.FC<Map2DViewerProps> = ({
   const translateX = viewportSize.w / 2 - center.x * scale;
   const translateY = viewportSize.h / 2 - center.y * scale;
 
+  // 지도 픽셀 좌표 (x, y) -> 뷰포트 화면 픽셀 좌표 (sx, sy) 직접 투영 (위치 오차 0px 보장)
+  const toScreenPos = (pt: Point) => ({
+    left: `${Math.round(translateX + pt.x * scale)}px`,
+    top: `${Math.round(translateY + pt.y * scale)}px`,
+  });
+
+  // 줌 배율에 따른 라벨 크기 스케일 (축소 시 자연스럽게 작아지도록 보정)
+  const uiScale = Math.max(0.72, Math.min(1.0, 0.55 + scale * 0.65));
+  // 너무 축소되었을 때는 보조 라벨(비선택 건물/랜드마크 텍스트)을 숨겨 경로 가림 방지
+  const isZoomedOut = scale < 0.34;
+
+  // 줌 배율에 반비례해 선 굵기가 과도하게 두꺼워지거나 얇아지지 않도록 보정
+  const baseStroke = Math.max(5, Math.min(14, 7 / Math.sqrt(scale)));
+
   return (
     <section className="map2d-section" aria-label="2D 캠퍼스 픽셀 좌표 지도 뷰어">
       {/* 상단 지도 상태 및 범례 컨트롤 바 */}
@@ -218,11 +238,19 @@ export const Map2DViewer: React.FC<Map2DViewerProps> = ({
           <span className="legend-item">
             <span className="legend-line legend-shortcut" /> ★ 지름길 구간(강조)
           </span>
+          <label className="checkbox-option">
+            <input
+              type="checkbox"
+              checked={showPlaceLabels}
+              onChange={() => setShowPlaceLabels((prev) => !prev)}
+            />
+            <span>주변 건물 라벨</span>
+          </label>
         </div>
 
         <div className="map2d-zoom-controls">
           <span className="mono-tag">
-            해상도 {mapInfo.width}×{mapInfo.height}px
+            배율 {Math.round(scale * 100)}%
           </span>
           {hoverPixel && (
             <span className="mono-tag">
@@ -252,7 +280,7 @@ export const Map2DViewer: React.FC<Map2DViewerProps> = ({
             className="strip-btn"
             onClick={() => {
               setCenter(mapInfo.defaultCenter);
-              setScale(0.42);
+              setScale(0.48);
             }}
           >
             초기 위치
@@ -271,7 +299,7 @@ export const Map2DViewer: React.FC<Map2DViewerProps> = ({
         onMouseUp={handleMouseUp}
         onWheel={handleWheel}
       >
-        {/* 픽셀 좌표계 변환 월드 레이어 (3000 x 5333, 좌상단 (0,0)) */}
+        {/* 1. 픽셀 좌표계 월드 레이어 (배경 이미지 + 단면도 + 경로 SVG 선) */}
         <div
           className="map2d-world"
           style={{
@@ -281,7 +309,7 @@ export const Map2DViewer: React.FC<Map2DViewerProps> = ({
             transformOrigin: '0 0',
           }}
         >
-          {/* 1. 실제 캠퍼스 지도 이미지 (응답 imageUrl 그대로 사용) */}
+          {/* 실제 캠퍼스 지도 이미지 */}
           <img
             src={mapInfo.imageUrl}
             alt="동국대학교 2D 캠퍼스 지도"
@@ -342,22 +370,22 @@ export const Map2DViewer: React.FC<Map2DViewerProps> = ({
                 fill="url(#pixelGrid500)"
               />
 
-              {/* 캠퍼스 주요 구역 윤곽선 (픽셀 좌표 검증용 가이드) */}
+              {/* 캠퍼스 주요 구역 윤곽선 */}
               <ellipse
                 cx="1050"
                 cy="2450"
-                rx="140"
-                ry="95"
+                rx="130"
+                ry="85"
                 fill="#fef3c7"
                 stroke="#d97706"
-                strokeWidth="4"
+                strokeWidth="3"
                 strokeDasharray="10 6"
               />
               <rect
                 x="1180"
                 y="2560"
-                width="240"
-                height="150"
+                width="230"
+                height="140"
                 fill="#ecfdf5"
                 stroke="#059669"
                 strokeWidth="3"
@@ -366,7 +394,7 @@ export const Map2DViewer: React.FC<Map2DViewerProps> = ({
             </svg>
           )}
 
-          {/* 2. 실내 구간 선택 시 층 단면도(floorImageUrl) 오버레이 (규칙 3 & 6) */}
+          {/* 실내 구간 선택 시 층 단면도(floorImageUrl) 오버레이 */}
           {activeSegment?.indoor && activeSegment.floorImageUrl && (
             <img
               src={activeSegment.floorImageUrl}
@@ -385,7 +413,7 @@ export const Map2DViewer: React.FC<Map2DViewerProps> = ({
             />
           )}
 
-          {/* 3. 경로 segments 폴리라인 및 포인트 SVG 레이어 */}
+          {/* 경로 segments 폴리라인 및 포인트 SVG 레이어 */}
           <svg
             width={mapInfo.width}
             height={mapInfo.height}
@@ -419,7 +447,7 @@ export const Map2DViewer: React.FC<Map2DViewerProps> = ({
                       points={polyPoints}
                       fill="none"
                       stroke="#fde047"
-                      strokeWidth={26}
+                      strokeWidth={baseStroke * 2.1}
                       strokeLinecap="round"
                       strokeLinejoin="round"
                     />
@@ -430,8 +458,12 @@ export const Map2DViewer: React.FC<Map2DViewerProps> = ({
                     points={polyPoints}
                     fill="none"
                     stroke={strokeColor}
-                    strokeWidth={seg.isShortcut ? 14 : 10}
-                    strokeDasharray={seg.indoor ? '18 12' : undefined}
+                    strokeWidth={seg.isShortcut ? baseStroke * 1.25 : baseStroke}
+                    strokeDasharray={
+                      seg.indoor
+                        ? `${baseStroke * 1.6} ${baseStroke * 1.1}`
+                        : undefined
+                    }
                     strokeLinecap="round"
                     strokeLinejoin="round"
                   />
@@ -442,87 +474,153 @@ export const Map2DViewer: React.FC<Map2DViewerProps> = ({
                       key={`${seg.index}-${pt.nodeId}-${pt.x}-${pt.y}`}
                       cx={pt.x}
                       cy={pt.y}
-                      r={seg.isShortcut ? 9 : 7}
+                      r={baseStroke * 0.65}
                       fill="#ffffff"
                       stroke={strokeColor}
-                      strokeWidth={4}
+                      strokeWidth={Math.max(2.5, baseStroke * 0.35)}
                     />
                   ))}
                 </g>
               );
             })}
-          </svg>
 
-          {/* 4. 지름길 구간 이름 라벨 (segments[].isShortcut && name) */}
+            {/* 현재 선택된 안내 단계(step) 위치를 나타내는 타겟 링 마커 (박스 겹침 없이 정확한 좌표 표시) */}
+            {activeStep && (
+              <g>
+                <circle
+                  cx={activeStep.position.x}
+                  cy={activeStep.position.y}
+                  r={baseStroke * 2.2}
+                  fill="rgba(250, 204, 21, 0.28)"
+                  stroke="#eab308"
+                  strokeWidth={Math.max(3, baseStroke * 0.35)}
+                />
+                <circle
+                  cx={activeStep.position.x}
+                  cy={activeStep.position.y}
+                  r={baseStroke * 0.9}
+                  fill="#facc15"
+                  stroke="#18181b"
+                  strokeWidth={Math.max(2.5, baseStroke * 0.3)}
+                />
+              </g>
+            )}
+          </svg>
+        </div>
+
+        {/* 2. 화면 픽셀 직접 투영 HTML 오버레이 레이어 (확대/축소 시 위치 어긋남 0px) */}
+        <div className="map2d-screen-overlay">
+          {/* (A) 보조 랜드마크/출입문 라벨: 주변 라벨 켜짐 & 적당한 확대 배율일 때만 표시 */}
+          {showPlaceLabels &&
+            !isZoomedOut &&
+            MOCK_PLACES.filter(
+              (p) =>
+                (p.category === 'LANDMARK' || p.category === 'ENTRANCE') &&
+                p.id !== fromPlace?.id &&
+                p.id !== toPlace?.id
+            ).map((lm) => {
+              const pos = toScreenPos(lm.position);
+              return (
+                <div
+                  key={`lm-${lm.id}`}
+                  className="map2d-landmark-chip"
+                  style={{
+                    left: pos.left,
+                    top: pos.top,
+                    transform: `translate(-50%, -50%) scale(${uiScale})`,
+                  }}
+                >
+                  {lm.name}
+                </div>
+              );
+            })}
+
+          {/* (B) 건물 마커 버튼: 축소 시에는 작은 점으로, 확대 시에는 깔끔한 이름 칩으로 표시 */}
+          {showPlaceLabels &&
+            buildings.map((b) => {
+              const isSelected = selectedBuildingId === b.id;
+              const pos = toScreenPos(b.position);
+
+              if (isZoomedOut && !isSelected) {
+                return (
+                  <button
+                    key={b.id}
+                    type="button"
+                    title={b.name}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSelectBuilding(b.id);
+                    }}
+                    className="map2d-building-dot"
+                    style={{
+                      left: pos.left,
+                      top: pos.top,
+                    }}
+                  />
+                );
+              }
+
+              return (
+                <button
+                  key={b.id}
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSelectBuilding(b.id);
+                  }}
+                  className={`map2d-building-pin ${
+                    isSelected ? 'map-pin-active' : ''
+                  }`}
+                  style={{
+                    left: pos.left,
+                    top: pos.top,
+                    transform: `translate(-50%, -50%) scale(${uiScale})`,
+                  }}
+                >
+                  {b.name}
+                </button>
+              );
+            })}
+
+          {/* (C) 지름길 구간 이름 배지: 경로 선 아래쪽(+14px)에 배치하여 도착 핀과 겹침 방지 */}
           {routeResult?.segments.map((seg) => {
             if (!seg.isShortcut || !seg.name || seg.points.length === 0) {
               return null;
             }
-            const midPt = seg.points[Math.floor(seg.points.length / 2)];
+            const midIdx = Math.floor(seg.points.length / 2);
+            const midPt =
+              seg.points.length === 2
+                ? {
+                    x: Math.round((seg.points[0].x + seg.points[1].x) / 2),
+                    y: Math.round((seg.points[0].y + seg.points[1].y) / 2),
+                  }
+                : seg.points[midIdx];
+            const pos = toScreenPos(midPt);
+
             return (
               <div
                 key={`shortcut-label-${seg.index}`}
                 className="map2d-shortcut-badge"
                 style={{
-                  left: `${midPt.x}px`,
-                  top: `${midPt.y}px`,
-                  transform: `translate(-50%, -140%) scale(${1 / scale})`,
+                  left: pos.left,
+                  top: pos.top,
+                  transform: `translate(-50%, 12px) scale(${uiScale})`,
+                  transformOrigin: '50% 0%',
                 }}
               >
-                ★ 지름길: {seg.name}
+                ★ {seg.name}
               </div>
             );
           })}
 
-          {/* 5. 캠퍼스 주요 랜드마크/출입문 보조 라벨 */}
-          {MOCK_PLACES.filter(
-            (p) => p.category === 'LANDMARK' || p.category === 'ENTRANCE'
-          ).map((lm) => (
-            <div
-              key={`lm-${lm.id}`}
-              className="map2d-landmark-chip"
-              style={{
-                left: `${lm.position.x}px`,
-                top: `${lm.position.y}px`,
-                transform: `translate(-50%, -50%) scale(${1 / scale})`,
-              }}
-            >
-              {lm.name}
-            </div>
-          ))}
-
-          {/* 6. 건물 마커 버튼 (클릭 시 건물 상세 정보 조회) */}
-          {buildings.map((b) => {
-            const isSelected = selectedBuildingId === b.id;
-            return (
-              <button
-                key={b.id}
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onSelectBuilding(b.id);
-                }}
-                className={`map-pin ${isSelected ? 'map-pin-active' : ''}`}
-                style={{
-                  left: `${b.position.x}px`,
-                  top: `${b.position.y}px`,
-                  transform: `translate(-50%, -50%) scale(${1 / scale})`,
-                }}
-              >
-                <span className="pin-code">건물</span>
-                <span className="pin-name">{b.name}</span>
-              </button>
-            );
-          })}
-
-          {/* 7. 출발지 / 도착지 핀 */}
+          {/* (D) 출발지 / 도착지 핀: 좌표 바로 위쪽(-10px)에 배치 */}
           {fromPlace && (
             <div
               className="map2d-endpoint-pin pin-from"
               style={{
-                left: `${fromPlace.position.x}px`,
-                top: `${fromPlace.position.y}px`,
-                transform: `translate(-50%, -115%) scale(${1 / scale})`,
+                ...toScreenPos(fromPlace.position),
+                transform: `translate(-50%, calc(-100% - 10px)) scale(${uiScale})`,
+                transformOrigin: '50% 100%',
               }}
             >
               출발: {fromPlace.name}
@@ -533,33 +631,35 @@ export const Map2DViewer: React.FC<Map2DViewerProps> = ({
             <div
               className="map2d-endpoint-pin pin-to"
               style={{
-                left: `${toPlace.position.x}px`,
-                top: `${toPlace.position.y}px`,
-                transform: `translate(-50%, -115%) scale(${1 / scale})`,
+                ...toScreenPos(toPlace.position),
+                transform: `translate(-50%, calc(-100% - 10px)) scale(${uiScale})`,
+                transformOrigin: '50% 100%',
               }}
             >
               도착: {toPlace.name}
             </div>
           )}
 
-          {/* 8. 현재 선택된 안내 단계(step) 포커스 링 */}
-          {activeStep && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onSelectStep(activeStep.index);
-              }}
-              className="map2d-active-step-pin"
-              style={{
-                left: `${activeStep.position.x}px`,
-                top: `${activeStep.position.y}px`,
-                transform: `translate(-50%, -50%) scale(${1 / scale})`,
-              }}
-            >
-              {activeStep.index + 1}단계 위치
-            </button>
-          )}
+          {/* (E) 중간 안내 단계(START/ARRIVE 제외) 선택 시에만 간결한 단계 태그 표시 */}
+          {activeStep &&
+            activeStep.action !== 'START' &&
+            activeStep.action !== 'ARRIVE' && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSelectStep(activeStep.index);
+                }}
+                className="map2d-active-step-pin"
+                style={{
+                  ...toScreenPos(activeStep.position),
+                  transform: `translate(-50%, calc(-100% - 12px)) scale(${uiScale})`,
+                  transformOrigin: '50% 100%',
+                }}
+              >
+                {activeStep.index + 1}단계 지점
+              </button>
+            )}
         </div>
 
         {/* 실내 층 단면도 활성화 상태 HUD 배너 */}
