@@ -395,7 +395,9 @@ export const RouteSidebar: React.FC<RouteSidebarProps> = ({
                         {formatFloorLabel(step.floor)}
                       </span>
                       {step.seconds !== null && (
-                        <span className="step-sec-label">약 {step.seconds}초</span>
+                        <span className="step-sec-label">
+                          {formatDurationText(step.seconds)}
+                        </span>
                       )}
                     </div>
                     <p className="step-card-text">{step.text}</p>
