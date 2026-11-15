@@ -333,7 +333,7 @@ export const RouteSidebar: React.FC<RouteSidebarProps> = ({
                 ({summary.totalKcal} kcal)
               </span>
             </div>
-            <span className="mono-tag">
+            <span className="summary-meta">
               실내 층변경 {summary.floorChanges}회
               {summary.usesRoad ? ' · 차도포함' : ''}
             </span>
@@ -395,15 +395,12 @@ export const RouteSidebar: React.FC<RouteSidebarProps> = ({
                         {formatFloorLabel(step.floor)}
                       </span>
                       {step.seconds !== null && (
-                        <span className="step-sec-label">약 {step.seconds}초</span>
+                        <span className="step-sec-label">
+                          {formatDurationText(step.seconds)}
+                        </span>
                       )}
                     </div>
                     <p className="step-card-text">{step.text}</p>
-                    {seg?.indoor && seg.floorImageUrl && (
-                      <span className="step-floorplan-tag">
-                        실내 단면도: {seg.floorImageUrl}
-                      </span>
-                    )}
                   </button>
                 </li>
               );
