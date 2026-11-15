@@ -199,18 +199,26 @@ export const GuideWorkspacePage: React.FC = () => {
 
   // 건물 상세 패널에서 출발지/도착지로 즉시 지정
   const handleSetBuildingAsEndpoint = async (
+    buildingId: number,
     buildingName: string,
     target: 'FROM' | 'TO'
   ) => {
+    setErrorText(null);
     try {
-      // 강의실·출입구가 아니라 건물 자체(BUILDING)를 우선 선택한다.
+      // 중앙도서관(LIBRARY), 상록원(CAFETERIA), 만해광장·대운동장(LANDMARK)처럼
+      // 건물 자체 장소가 BUILDING 외 카테고리일 수 있으므로 category 필터 없이 조회한다.
       const res = await searchPlaces({
         q: buildingName,
-        category: 'BUILDING',
-        limit: 10,
+        limit: 20,
       });
       const place =
-        res.items.find((p) => p.name === buildingName) ?? res.items[0];
+        res.items.find(
+          (p) => p.buildingId === buildingId && p.name === buildingName
+        ) ??
+        res.items.find((p) => p.name === buildingName) ??
+        res.items.find((p) => p.buildingId === buildingId && p.floor === 0) ??
+        res.items.find((p) => p.buildingId === buildingId) ??
+        res.items[0];
       if (!place) {
         setErrorText('이 건물에 해당하는 장소를 찾을 수 없어요.');
         return;
@@ -316,8 +324,12 @@ export const GuideWorkspacePage: React.FC = () => {
           <BuildingDetailPanel
             building={selectedBuilding}
             onClose={() => setSelectedBuilding(null)}
-            onSetAsFrom={(name) => handleSetBuildingAsEndpoint(name, 'FROM')}
-            onSetAsTo={(name) => handleSetBuildingAsEndpoint(name, 'TO')}
+            onSetAsFrom={(id, name) =>
+              handleSetBuildingAsEndpoint(id, name, 'FROM')
+            }
+            onSetAsTo={(id, name) =>
+              handleSetBuildingAsEndpoint(id, name, 'TO')
+            }
           />
         </div>
       </main>

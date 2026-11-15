@@ -129,17 +129,17 @@ export const RouteSidebar: React.FC<RouteSidebarProps> = ({
       <div className="sidebar-search-section">
         <div className="preset-row">
           <span className="filter-label">검증 루트</span>
-          <span>
-          {presets.map((preset) => (
-            <button
-              key={preset.label}
-              type="button"
-              className="preset-link"
-              onClick={() => onApplyPreset(preset.from, preset.to)}
-            >
-              {preset.label}
-            </button>
-          ))}
+          <span className="preset-links">
+            {presets.map((preset) => (
+              <button
+                key={preset.label}
+                type="button"
+                className="preset-link"
+                onClick={() => onApplyPreset(preset.from, preset.to)}
+              >
+                {preset.label}
+              </button>
+            ))}
           </span>
         </div>
 
