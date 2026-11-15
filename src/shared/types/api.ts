@@ -56,12 +56,20 @@ export interface RoutePoint {
   z?: number;
 }
 
+export interface ImageBounds {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 export interface RouteSegment {
   index: number;
   indoor: boolean;
   buildingId: number | null;
   floor: number;
   floorImageUrl: string | null;
+  floorImageBounds?: ImageBounds | null;
   isShortcut: boolean;
   name: string | null;
   points: RoutePoint[];
@@ -149,6 +157,7 @@ export interface BuildingFloorInfo {
   floor: number;
   label: string;
   floorImageUrl: string | null;
+  floorImageBounds?: ImageBounds | null;
 }
 
 export interface BuildingFacilityInfo {

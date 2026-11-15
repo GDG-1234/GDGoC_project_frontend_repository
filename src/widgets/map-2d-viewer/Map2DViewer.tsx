@@ -245,23 +245,50 @@ export const Map2DViewer: React.FC<Map2DViewerProps> = (props) => {
     activeSegment?.indoor && activeSegment.floorImageUrl
       ? activeSegment.floorImageUrl
       : null;
+  const floorImageBounds = activeSegment?.floorImageBounds ?? null;
+  const floorBoundsX = floorImageBounds?.x ?? null;
+  const floorBoundsY = floorImageBounds?.y ?? null;
+  const floorBoundsW = floorImageBounds?.width ?? null;
+  const floorBoundsH = floorImageBounds?.height ?? null;
   const floorLabel = formatFloorLabel(activeSegment?.floor ?? 0);
   useEffect(() => {
     const group = floorGroupRef.current;
     if (!group) return;
     group.clearLayers();
     if (!floorImageUrl) return;
-    L.imageOverlay(
-      floorImageUrl,
-      L.latLngBounds([0, 0], [mapInfo.height, mapInfo.width]),
-      {
-        pane: 'floorPane',
-        interactive: false,
-        opacity: 0.88,
-        alt: `실내 층 단면도 (${floorLabel})`,
-      }
-    ).addTo(group);
-  }, [floorImageUrl, floorLabel, mapInfo.width, mapInfo.height]);
+
+    const hasBounds =
+      floorBoundsX !== null &&
+      floorBoundsY !== null &&
+      floorBoundsW !== null &&
+      floorBoundsH !== null &&
+      floorBoundsW > 0 &&
+      floorBoundsH > 0;
+
+    // 명세 0.4: 단면도는 건물 크기 그림이므로 floorImageBounds가 있으면 해당 영역에만 겹친다.
+    const bounds = hasBounds
+      ? L.latLngBounds(
+          [floorBoundsY, floorBoundsX],
+          [floorBoundsY + floorBoundsH, floorBoundsX + floorBoundsW]
+        )
+      : L.latLngBounds([0, 0], [mapInfo.height, mapInfo.width]);
+
+    L.imageOverlay(floorImageUrl, bounds, {
+      pane: 'floorPane',
+      interactive: false,
+      opacity: 0.88,
+      alt: `실내 층 단면도 (${floorLabel})`,
+    }).addTo(group);
+  }, [
+    floorImageUrl,
+    floorBoundsX,
+    floorBoundsY,
+    floorBoundsW,
+    floorBoundsH,
+    floorLabel,
+    mapInfo.width,
+    mapInfo.height,
+  ]);
 
   // 4. 경로 segments 폴리라인 + 현재 단계 링 마커
   useEffect(() => {
