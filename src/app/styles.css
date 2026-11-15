@@ -35,7 +35,6 @@ input,
 .note-box,
 .map-pick-notice,
 .map2d-float,
-.map2d-indoor-hud,
 .building-detail-drawer {
   border-radius: var(--radius-lg);
 }
@@ -1222,6 +1221,7 @@ button:hover {
 
 /* 우측 2D 지도 컬럼 & 뷰포트 */
 .guide-map-column {
+  position: relative;
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -1476,25 +1476,38 @@ button:hover {
   z-index: 7;
 }
 
-.map2d-indoor-hud {
+/* 하단 플로팅 건물 상세 카드 (우측 하단 줌·배율 패널과 겹치지 않도록 우측 여백 확보) */
+.building-detail-drawer {
   position: absolute;
-  bottom: 16px;
   left: 16px;
-  background-color: rgba(255, 255, 255, 0.96);
-  border: 1px solid #2563eb;
-  padding: 8px 14px;
+  bottom: 16px;
+  width: min(620px, calc(100% - 188px));
+  max-height: min(260px, 44%);
+  z-index: 1000;
   display: flex;
-  align-items: center;
-  gap: 12px;
-  font-size: 12.5px;
-  color: #1e3a8a;
-  z-index: 10;
+  flex-direction: column;
+  border: 1px solid #d4d4d8;
+  background-color: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 2px 10px rgba(24, 24, 27, 0.14);
+  overflow: hidden;
 }
 
-.building-detail-drawer {
-  border-top: 1px solid #18181b;
-  background-color: #ffffff;
+.building-detail-drawer .detail-header {
+  padding: 10px 14px;
+  gap: 8px;
+  flex-wrap: wrap;
   flex-shrink: 0;
+}
+
+.building-detail-drawer .data-table th,
+.building-detail-drawer .data-table td {
+  padding: 7px 12px;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.building-detail-drawer .data-table tbody th {
+  width: 96px;
 }
 
 .building-alias-text {
@@ -1506,8 +1519,10 @@ button:hover {
 .building-drawer-actions {
   display: flex;
   gap: 6px;
+  flex-shrink: 0;
 }
 
 .building-detail-grid {
   padding: 0;
+  overflow-y: auto;
 }
