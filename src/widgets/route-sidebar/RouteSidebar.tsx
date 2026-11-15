@@ -305,7 +305,7 @@ export const RouteSidebar: React.FC<RouteSidebarProps> = ({
           <div className="map-pick-notice" role="status">
             지도 위 원하는 위치를 클릭하면 가장 가까운 장소가{' '}
             <strong>{mapPickTarget === 'FROM' ? '출발지' : '도착지'}</strong>로
-            지정됩니다. (`/places/nearest`)
+            지정됩니다.
           </div>
         )}
 

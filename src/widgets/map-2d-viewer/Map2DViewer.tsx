@@ -40,6 +40,12 @@ const MAX_FIT_ZOOM = 0;
 
 const toLatLng = (p: { x: number; y: number }): L.LatLngTuple => [p.y, p.x];
 
+const isNearPoint = (
+  a: { x: number; y: number },
+  b: { x: number; y: number } | null | undefined,
+  threshold: number
+): boolean => (b ? Math.hypot(a.x - b.x, a.y - b.y) < threshold : false);
+
 // API 응답 문자열은 innerHTML 대신 textContent로 넣는다.
 function makeEl(className: string, text?: string): HTMLElement {
   const el = document.createElement('div');
@@ -373,47 +379,73 @@ export const Map2DViewer: React.FC<Map2DViewerProps> = (props) => {
     if (!group) return;
     group.clearLayers();
 
-    // (A) 보조 랜드마크/출입문 라벨
+    // (A) 보조 랜드마크/출입문 라벨 (출발·도착 핀이나 건물 칩과 겹치는 위치는 숨긴다)
     if (showPlaceLabels && !isZoomedOut) {
       landmarks
         .filter(
           (p) =>
             (p.category === 'LANDMARK' || p.category === 'ENTRANCE') &&
             p.id !== fromPlace?.id &&
-            p.id !== toPlace?.id
+            p.id !== toPlace?.id &&
+            !isNearPoint(p.position, fromPlace?.position, 45) &&
+            !isNearPoint(p.position, toPlace?.position, 45) &&
+            !buildings.some((b) => isNearPoint(p.position, b.position, 45))
         )
         .forEach((lm) => {
           L.marker(toLatLng(lm.position), {
             icon: makeIcon(makeEl('map2d-landmark-chip', lm.name), 'center'),
             interactive: false,
             keyboard: false,
+            zIndexOffset: 50,
           }).addTo(group);
         });
     }
 
-    // (B) 건물 마커: 축소 시에는 작은 점, 확대 시에는 이름 칩
+    // (B) 건물 마커: 축소 시에는 작은 점, 확대 시에는 이름 칩 (핀과 겹치면 핀 아래로 내린다)
     if (showPlaceLabels) {
       buildings.forEach((b) => {
         const isSelected = selectedBuildingId === b.id;
-        const inner =
-          isZoomedOut && !isSelected
-            ? makeEl('map2d-building-dot')
-            : makeEl(
-                `map2d-building-pin ${isSelected ? 'map-pin-active' : ''}`,
-                b.name
-              );
+        const asDot = isZoomedOut && !isSelected;
+        const nearEndpoint =
+          !asDot &&
+          (isNearPoint(b.position, fromPlace?.position, 45) ||
+            isNearPoint(b.position, toPlace?.position, 45));
+        const inner = asDot
+          ? makeEl('map2d-building-dot')
+          : makeEl(
+              `map2d-building-pin ${isSelected ? 'map-pin-active' : ''}`,
+              b.name
+            );
         L.marker(toLatLng(b.position), {
-          icon: makeIcon(inner, 'center'),
+          icon: makeIcon(inner, nearEndpoint ? 'below' : 'center'),
           title: b.name,
           alt: `${b.name} 건물 정보 보기`,
           keyboard: true,
+          zIndexOffset: isSelected ? 500 : 150,
         })
           .on('click', () => propsRef.current.onSelectBuilding(b.id))
           .addTo(group);
       });
     }
 
-    // (C) 지름길 구간 이름 배지
+    // (C) 지름길 구간 이름 배지 (기본은 경로선 위쪽, 핀과 부딪치면 아래쪽으로 회피)
+    const activeStepPos =
+      activeStep &&
+      activeStep.action !== 'START' &&
+      activeStep.action !== 'ARRIVE'
+        ? activeStep.position
+        : null;
+    const avoidsAbove = (
+      mid: { x: number; y: number },
+      ref: { x: number; y: number } | null | undefined
+    ) =>
+      Boolean(
+        ref &&
+          Math.abs(ref.x - mid.x) < 60 &&
+          ref.y <= mid.y + 16 &&
+          ref.y >= mid.y - 65
+      );
+
     routeResult?.segments.forEach((seg) => {
       if (!seg.isShortcut || !seg.name || seg.points.length === 0) return;
       const midIdx = Math.floor(seg.points.length / 2);
@@ -424,10 +456,18 @@ export const Map2DViewer: React.FC<Map2DViewerProps> = (props) => {
               y: (seg.points[0].y + seg.points[1].y) / 2,
             }
           : seg.points[midIdx];
+      const placeBelow =
+        avoidsAbove(midPt, fromPlace?.position) ||
+        avoidsAbove(midPt, toPlace?.position) ||
+        avoidsAbove(midPt, activeStepPos);
       L.marker(toLatLng(midPt), {
-        icon: makeIcon(makeEl('map2d-shortcut-badge', `★ ${seg.name}`), 'below'),
+        icon: makeIcon(
+          makeEl('map2d-shortcut-badge', `★ ${seg.name}`),
+          placeBelow ? 'below' : 'above-step'
+        ),
         interactive: false,
         keyboard: false,
+        zIndexOffset: 450,
       }).addTo(group);
     });
 
@@ -601,18 +641,6 @@ export const Map2DViewer: React.FC<Map2DViewerProps> = (props) => {
             </span>
           )}
         </div>
-
-        {/* 실내 층 단면도 활성화 상태 HUD 배너 */}
-        {activeSegment?.indoor && (
-          <div className="map2d-indoor-hud">
-            <strong>
-              실내 구간 활성화 ({formatFloorLabel(activeSegment.floor)})
-            </strong>
-            <span>
-              단면도 URL: <code>{activeSegment.floorImageUrl || '없음'}</code>
-            </span>
-          </div>
-        )}
       </div>
     </section>
   );
