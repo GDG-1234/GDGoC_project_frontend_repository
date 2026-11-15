@@ -2,3 +2,10 @@
 
 /** 지도 클릭으로 선택할 대상. null이면 지도 선택 모드가 꺼진 상태 */
 export type MapPickTarget = 'FROM' | 'TO' | null;
+
+/** 사이드바 상단 빠른 검증 루트 프리셋 */
+export interface RoutePreset {
+  label: string;
+  from: string;
+  to: string;
+}

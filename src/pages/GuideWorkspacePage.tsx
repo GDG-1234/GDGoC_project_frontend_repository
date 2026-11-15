@@ -22,11 +22,24 @@ import {
 import { BuildingDetailPanel } from '../widgets/building-detail/BuildingDetailPanel';
 import { Map2DViewer } from '../widgets/map-2d-viewer/Map2DViewer';
 import { RouteSidebar } from '../widgets/route-sidebar/RouteSidebar';
-import { MapPickTarget } from '../shared/types/ui';
+import { MapPickTarget, RoutePreset } from '../shared/types/ui';
 
-// 초기 출발지/도착지 (ID가 아니라 이름으로 찾아 실서버·mock 어느 쪽에서도 동작하게 한다)
-const DEFAULT_FROM_NAME = '팔정도';
-const DEFAULT_TO_NAME = '신공학관 4142호';
+// 초기 출발지/도착지 및 검증 프리셋 (Mock과 실서버 데이터 구성이 달라 소스별로 맞춘다)
+const MOCK_DEFAULT_ROUTE = { from: '팔정도', to: '신공학관 4142호' };
+const LIVE_DEFAULT_ROUTE = { from: '혜화관', to: '신공학관 3층' };
+
+const MOCK_ROUTE_PRESETS: RoutePreset[] = [
+  { label: '팔정도 → 신공 4142호', from: '팔정도', to: '신공학관 4142호' },
+  { label: '혜화관 3층 → 경영관 3층', from: '혜화관 3층', to: '경영관 3층' },
+  { label: '후문 → 명진관 1층', from: '후문', to: '명진관 1층' },
+];
+
+const LIVE_ROUTE_PRESETS: RoutePreset[] = [
+  { label: '정문 → 중앙도서관', from: '정문', to: '중앙도서관' },
+  { label: '혜화관 → 신공 3층', from: '혜화관', to: '신공학관 3층' },
+  { label: '신공 4층 → 대운동장', from: '신공학관 4층', to: '대운동장' },
+  { label: '동대입구 → 문화관 B1', from: '동대입구 방향 입구', to: '문화관 B1층' },
+];
 
 // 이름으로 장소 하나를 찾는다. 완전 일치가 있으면 그것을, 없으면 첫 번째 결과를 쓴다.
 async function findPlaceByName(name: string): Promise<PlaceSummary | null> {
@@ -66,11 +79,12 @@ export const GuideWorkspacePage: React.FC = () => {
   // 데이터 소스가 바뀔 때마다 기본 출발지/도착지를 해당 소스에서 다시 찾는다.
   useEffect(() => {
     let cancelled = false;
+    const defaults = useMock ? MOCK_DEFAULT_ROUTE : LIVE_DEFAULT_ROUTE;
     async function loadDefaults() {
       try {
         const [f, t] = await Promise.all([
-          findPlaceByName(DEFAULT_FROM_NAME),
-          findPlaceByName(DEFAULT_TO_NAME),
+          findPlaceByName(defaults.from),
+          findPlaceByName(defaults.to),
         ]);
         if (!cancelled) {
           setFromPlace(f);
@@ -185,18 +199,26 @@ export const GuideWorkspacePage: React.FC = () => {
 
   // 건물 상세 패널에서 출발지/도착지로 즉시 지정
   const handleSetBuildingAsEndpoint = async (
+    buildingId: number,
     buildingName: string,
     target: 'FROM' | 'TO'
   ) => {
+    setErrorText(null);
     try {
-      // 강의실·출입구가 아니라 건물 자체(BUILDING)를 우선 선택한다.
+      // 중앙도서관(LIBRARY), 상록원(CAFETERIA), 만해광장·대운동장(LANDMARK)처럼
+      // 건물 자체 장소가 BUILDING 외 카테고리일 수 있으므로 category 필터 없이 조회한다.
       const res = await searchPlaces({
         q: buildingName,
-        category: 'BUILDING',
-        limit: 10,
+        limit: 20,
       });
       const place =
-        res.items.find((p) => p.name === buildingName) ?? res.items[0];
+        res.items.find(
+          (p) => p.buildingId === buildingId && p.name === buildingName
+        ) ??
+        res.items.find((p) => p.name === buildingName) ??
+        res.items.find((p) => p.buildingId === buildingId && p.floor === 0) ??
+        res.items.find((p) => p.buildingId === buildingId) ??
+        res.items[0];
       if (!place) {
         setErrorText('이 건물에 해당하는 장소를 찾을 수 없어요.');
         return;
@@ -259,6 +281,7 @@ export const GuideWorkspacePage: React.FC = () => {
       <main className="guide-main-grid">
         {/* 좌측: 검색 / 옵션 / 요약 / 안내 목록 (3D 단계에서도 그대로 재사용) */}
         <RouteSidebar
+          presets={useMock ? MOCK_ROUTE_PRESETS : LIVE_ROUTE_PRESETS}
           fromPlace={fromPlace}
           toPlace={toPlace}
           mode={mode}
@@ -301,8 +324,12 @@ export const GuideWorkspacePage: React.FC = () => {
           <BuildingDetailPanel
             building={selectedBuilding}
             onClose={() => setSelectedBuilding(null)}
-            onSetAsFrom={(name) => handleSetBuildingAsEndpoint(name, 'FROM')}
-            onSetAsTo={(name) => handleSetBuildingAsEndpoint(name, 'TO')}
+            onSetAsFrom={(id, name) =>
+              handleSetBuildingAsEndpoint(id, name, 'FROM')
+            }
+            onSetAsTo={(id, name) =>
+              handleSetBuildingAsEndpoint(id, name, 'TO')
+            }
           />
         </div>
       </main>

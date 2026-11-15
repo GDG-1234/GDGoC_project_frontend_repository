@@ -4,8 +4,8 @@ import { BuildingDetailResponse } from '../../shared/types/api';
 interface BuildingDetailPanelProps {
   building: BuildingDetailResponse | null;
   onClose: () => void;
-  onSetAsFrom: (buildingName: string) => void;
-  onSetAsTo: (buildingName: string) => void;
+  onSetAsFrom: (buildingId: number, buildingName: string) => void;
+  onSetAsTo: (buildingId: number, buildingName: string) => void;
 }
 
 export const BuildingDetailPanel: React.FC<BuildingDetailPanelProps> = ({
@@ -31,14 +31,14 @@ export const BuildingDetailPanel: React.FC<BuildingDetailPanelProps> = ({
           <button
             type="button"
             className="strip-btn"
-            onClick={() => onSetAsFrom(building.name)}
+            onClick={() => onSetAsFrom(building.id, building.name)}
           >
             출발지로 지정
           </button>
           <button
             type="button"
             className="strip-btn"
-            onClick={() => onSetAsTo(building.name)}
+            onClick={() => onSetAsTo(building.id, building.name)}
           >
             도착지로 지정
           </button>
