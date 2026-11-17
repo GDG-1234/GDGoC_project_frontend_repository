@@ -51,16 +51,17 @@ function cleanPlaceFragment(raw: string): string {
       /(?:편한\s*길|빠른\s*길|차도\s*피해(?:서)?|차도\s*피하(?:고|기)|인도로)(?:으로|로)?/g,
       ' '
     )
+    .replace(/\s+(?:좀|한번)\s+/g, ' ')
     .trim();
 
-  // 문장 끝에 수식어가 연달아 붙는 경우 ("~ 가는 길 알려줘", "~ 편의시설이랑 운영시간 알려줘") 반복 제거
+  // 문장 끝에 수식어가 연달아 붙는 경우 ("~까지 길 알려줘", "~ 편의시설이랑 운영시간 알려줘") 반복 제거
   let prev = '';
   while (result !== prev) {
     prev = result;
     result = result
       .replace(/[?.!~]+$/g, '')
       .replace(
-        /\s*(?:가는\s*길|가려면|어떻게\s*가(?:요|나요|지)?|길안내|길\s*찾아(?:줘|주세요)?|안내(?:해\s*줘|해\s*주세요)?|알려(?:줘|주세요)?|보여(?:줘|주세요)?|찾아(?:줘|주세요)?|가고\s*싶어(?:요)?|싶어(?:요)?)$/g,
+        /\s*(?:가는\s*길|가는\s*법|가려면|어떻게\s*가(?:요|나요|지)?|길\s*안내|길안내|길\s*찾기|길찾기|길\s*찾아(?:줘|주세요)?|안내(?:해\s*줘|해\s*주세요)?|알려(?:줘|주세요)?|보여(?:줘|주세요)?|찾아(?:줘|주세요)?|가고\s*싶어(?:요)?|싶어(?:요)?|경로|루트|좀|길)$/g,
         ''
       )
       .replace(
@@ -89,7 +90,10 @@ export function parseCampusQuery(
   if (/도서\s*검색|대출|열람실/.test(text) && !/가는\s*길|까지|에서/.test(text)) {
     return { kind: 'PORTAL_INFO', topic: 'LIBRARY' };
   }
-  if (/공지|채용|장학|졸업\s*요건|학사/.test(text)) {
+  if (
+    /공지|채용|장학|졸업\s*요건|학사\s*(?:일정|공지|안내)/.test(text) &&
+    !/가는\s*길|가는\s*법|까지|에서|→|->/.test(text)
+  ) {
     return { kind: 'PORTAL_INFO', topic: 'NOTICE' };
   }
 
@@ -115,8 +119,8 @@ export function parseCampusQuery(
     }
   }
 
-  // 4. 도착지만 있는 경로 질의 ("중앙도서관 가는 길", "신공학관 3층까지 어떻게 가")
-  if (/(?:가는\s*길|어떻게\s*가|길안내|길\s*찾|까지)/.test(text)) {
+  // 4. 도착지만 있는 경로 질의 ("중앙도서관 가는 길", "신공학관 3층까지 길 알려줘")
+  if (/(?:가는\s*길|가는\s*법|어떻게\s*가|길\s*안내|길안내|길\s*찾|길찾기|경로|루트|까지)/.test(text)) {
     const toQuery = cleanPlaceFragment(text);
     if (toQuery) {
       return { kind: 'ROUTE', fromQuery: null, toQuery, ...options };

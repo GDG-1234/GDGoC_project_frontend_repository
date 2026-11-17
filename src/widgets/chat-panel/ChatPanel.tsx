@@ -119,11 +119,6 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
     return (
       <main className="chat-main empty-chat">
         <div className="empty-content">
-          <span className="intro-mark" aria-hidden="true">
-            <span />
-            <span />
-          </span>
-          <p className="overline">YOUR CAMPUS COMPANION</p>
           <h1>
             캠퍼스에서 무엇을
             <br />

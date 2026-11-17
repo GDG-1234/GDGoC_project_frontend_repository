@@ -762,11 +762,6 @@ export const GuideWorkspacePage: React.FC = () => {
     setActiveSection('chat');
   };
 
-  const activeStep =
-    activeStepIndex !== null && routeResult
-      ? routeResult.steps.find((s) => s.index === activeStepIndex) || null
-      : null;
-
   const recentItems = artifactHistory.map((item) => ({
     id: item.id,
     label: item.title,
@@ -803,7 +798,6 @@ export const GuideWorkspacePage: React.FC = () => {
           className="brand"
           onClick={() => selectSection('chat')}
         >
-          <span className="brand-mark">A</span>
           <span>아코봇</span>
         </button>
         <button
@@ -989,55 +983,9 @@ export const GuideWorkspacePage: React.FC = () => {
                   onSelectStep={(idx) => setActiveStepIndex(idx)}
                   onSelectBuilding={handleSelectBuildingOnMap}
                 />
+              </div>
 
-                {routeResult && activeStep && (
-                  <div className="map2d-float map2d-float-stepbar">
-                    <button
-                      type="button"
-                      className="stepbar-nav-btn"
-                      aria-label="이전 단계"
-                      disabled={activeStep.index <= 0}
-                      onClick={() =>
-                        setActiveStepIndex(Math.max(0, activeStep.index - 1))
-                      }
-                    >
-                      ◀
-                    </button>
-                    <button
-                      type="button"
-                      className="stepbar-label-btn"
-                      title="단계별 이동 안내 보기"
-                      onClick={() => setArtifactTab('STEPS')}
-                    >
-                      <span className="stepbar-floor">
-                        {formatFloorLabel(activeStep.floor)}
-                      </span>
-                      <span className="stepbar-text">
-                        {activeStep.index + 1}/{routeResult.steps.length} ·{' '}
-                        {activeStep.text}
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      className="stepbar-nav-btn"
-                      aria-label="다음 단계"
-                      disabled={
-                        activeStep.index >= routeResult.steps.length - 1
-                      }
-                      onClick={() =>
-                        setActiveStepIndex(
-                          Math.min(
-                            routeResult.steps.length - 1,
-                            activeStep.index + 1
-                          )
-                        )
-                      }
-                    >
-                      ▶
-                    </button>
-                  </div>
-                )}
-
+              {selectedBuilding ? (
                 <BuildingDetailPanel
                   building={selectedBuilding}
                   onClose={() => setSelectedBuilding(null)}
@@ -1048,9 +996,7 @@ export const GuideWorkspacePage: React.FC = () => {
                     handleSetBuildingAsEndpoint(id, name, 'TO')
                   }
                 />
-              </div>
-
-              {routeResult && fromPlace && toPlace && (
+              ) : routeResult && fromPlace && toPlace ? (
                 <div className="route-summary">
                   <div className="route-title">
                     <span className="route-number">01</span>
@@ -1059,7 +1005,9 @@ export const GuideWorkspacePage: React.FC = () => {
                         {fromPlace.name}에서 {toPlace.name}까지
                       </strong>
                       <p>
-                        {mode === 'EASIEST' ? '칼로리가 적게 드는 편한 경로' : '가장 빠른 추천 경로'}
+                        {mode === 'EASIEST'
+                          ? '칼로리가 적게 드는 편한 경로'
+                          : '가장 빠른 추천 경로'}
                         {avoidRoad ? ' · 차도 회피 적용' : ''}
                       </p>
                     </div>
@@ -1091,6 +1039,13 @@ export const GuideWorkspacePage: React.FC = () => {
                     단계별 안내 보기 ({routeResult.steps.length}단계){' '}
                     <Icon name="arrow" size={17} />
                   </button>
+                </div>
+              ) : (
+                <div className="route-summary route-summary-idle">
+                  <p>
+                    지도 위 건물을 선택해 상세 정보를 확인하거나, 대화창에 출발·도착지를
+                    입력해 경로를 띄워보세요.
+                  </p>
                 </div>
               )}
             </>

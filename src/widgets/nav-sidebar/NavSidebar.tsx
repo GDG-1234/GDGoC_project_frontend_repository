@@ -58,7 +58,6 @@ export const NavSidebar: React.FC<NavSidebarProps> = ({
           }}
           aria-label="아코봇 홈"
         >
-          <span className="brand-mark">A</span>
           <span>아코봇</span>
         </button>
         {onCloseMobile && (

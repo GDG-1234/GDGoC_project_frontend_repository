@@ -93,7 +93,6 @@ button {
   color: var(--ink);
 }
 
-.brand-mark,
 .assistant-avatar {
   display: grid;
   place-items: center;
@@ -101,13 +100,6 @@ button {
   color: white;
   font-family: "Plus Jakarta Sans", sans-serif;
   font-weight: 700;
-}
-
-.brand-mark {
-  width: 28px;
-  height: 28px;
-  border-radius: 8px 8px 8px 2px;
-  font-size: 14px;
 }
 
 .new-chat {
@@ -269,9 +261,9 @@ button {
 
 .desktop-sidebar.collapsed .brand {
   gap: 0;
+  font-size: 13px;
 }
 
-.desktop-sidebar.collapsed .brand > span:last-child,
 .desktop-sidebar.collapsed .new-chat span,
 .desktop-sidebar.collapsed .nav-item span,
 .desktop-sidebar.collapsed .history,
@@ -317,40 +309,6 @@ button {
   width: min(640px, calc(100% - 64px));
   margin-top: -1vh;
   text-align: center;
-}
-
-.intro-mark {
-  position: relative;
-  display: inline-block;
-  width: 40px;
-  height: 30px;
-  margin-bottom: 18px;
-}
-
-.intro-mark span {
-  position: absolute;
-  width: 21px;
-  height: 21px;
-  border-radius: 14px 14px 14px 3px;
-}
-
-.intro-mark span:first-child {
-  left: 2px;
-  top: 2px;
-  background: var(--orange);
-}
-
-.intro-mark span:last-child {
-  right: 2px;
-  bottom: 0;
-  background: #222;
-  transform: rotate(180deg);
-}
-
-.overline {
-  color: var(--orange);
-  margin: 0 0 13px;
-  letter-spacing: 2.2px;
 }
 
 .empty-content h1 {
@@ -977,19 +935,19 @@ button {
   z-index: 1000;
   background-color: rgba(255, 255, 255, 0.96);
   border: 1px solid #ddd;
-  border-radius: 8px;
+  border-radius: 10px;
   box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
-  font-size: 11.5px;
+  font-size: 11px;
 }
 
 .map2d-float-legend {
-  top: 12px;
-  right: 12px;
+  top: 14px;
+  left: 14px;
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 6px 12px;
-  padding: 6px 10px;
+  gap: 6px 11px;
+  padding: 6px 11px;
 }
 
 .legend-item {
@@ -997,16 +955,18 @@ button {
   align-items: center;
   gap: 5px;
   font-weight: 500;
+  color: #444;
 }
 
 .legend-line {
   display: inline-block;
-  width: 18px;
+  width: 16px;
   height: 3px;
+  border-radius: 2px;
 }
 
 .legend-outdoor {
-  background-color: #18181b;
+  background-color: #222222;
 }
 
 .legend-indoor {
@@ -1021,103 +981,113 @@ button {
 .checkbox-option {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   cursor: pointer;
-  color: #444;
+  color: #555;
 }
 
-.map2d-float-zoom {
-  right: 12px;
-  bottom: 44px;
+/* have_a_look 시안 우상단 줌 컨트롤 */
+.map-controls {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 1000;
   display: flex;
   flex-direction: column;
+  border: 1px solid #ddd;
+  border-radius: 8px;
   overflow: hidden;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.07);
 }
 
-.map2d-zoom-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.map-controls button {
   width: 34px;
   height: 34px;
+  display: grid;
+  place-items: center;
   padding: 0;
-  border: none;
+  border: 0;
+  border-bottom: 1px solid #eee;
   background: white;
   color: #333;
   font-size: 17px;
   line-height: 1;
 }
 
-.map2d-zoom-btn + .map2d-zoom-btn {
-  border-top: 1px solid #eee;
+.map-controls button.map-reset-btn {
+  font-size: 14px;
 }
 
-.map2d-zoom-btn:hover {
-  background-color: #f4f4f2;
+.map-controls button:last-child {
+  border-bottom: 0;
 }
 
-.map2d-float-status {
-  right: 12px;
-  bottom: 12px;
-  display: flex;
-  gap: 8px;
-  padding: 3px 9px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 11px;
-  color: #666;
+.map-controls button:hover {
+  background: #f5f5f3;
 }
 
-.map2d-float-stepbar {
-  top: 12px;
-  left: 12px;
-  max-width: calc(100% - 295px);
-  display: flex;
+/* have_a_look 시안 좌하단 다크 알약 배지 + 단계 앞뒤 이동 */
+.map-label-bar {
+  position: absolute;
+  left: 14px;
+  bottom: 14px;
+  z-index: 1000;
+  display: inline-flex;
   align-items: center;
-  overflow: hidden;
+  gap: 6px;
 }
 
-.stepbar-nav-btn {
-  padding: 6px 9px;
+.map-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 20px;
+  background: #222;
+  color: white;
+  padding: 7px 12px;
   font-size: 11px;
-  border: none;
+  font-weight: 500;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.14);
+}
+
+.map-step-stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid #ddd;
+  padding: 2px 4px;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+  font-size: 11px;
+  color: #444;
+}
+
+.map-step-stepper button {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
   background: transparent;
   color: #222;
-  flex-shrink: 0;
+  font-size: 14px;
+  line-height: 1;
 }
 
-.stepbar-nav-btn:disabled {
+.map-step-stepper button:hover:not(:disabled) {
+  background: #f0f0ee;
+}
+
+.map-step-stepper button:disabled {
   opacity: 0.3;
   cursor: not-allowed;
 }
 
-.stepbar-label-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-  padding: 6px 9px;
-  border: none;
-  border-left: 1px solid #eee;
-  border-right: 1px solid #eee;
-  background: transparent;
-  font-size: 11.5px;
-}
-
-.stepbar-floor {
-  padding: 1px 5px;
-  font-size: 10.5px;
-  font-weight: 700;
-  background: #222;
-  color: white;
-  border-radius: 4px;
-  flex-shrink: 0;
-}
-
-.stepbar-text {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: #333;
+.map-step-stepper span {
+  padding: 0 4px;
+  font-variant-numeric: tabular-nums;
 }
 
 /* Leaflet Marker Anchors & Styles */
@@ -1173,19 +1143,20 @@ button {
 .map2d-building-pin {
   position: absolute;
   pointer-events: auto;
-  padding: 3px 7px;
-  border-radius: 4px;
+  padding: 3px 8px;
+  border-radius: 6px;
   font-size: 11px;
   font-weight: 600;
-  background: rgba(255, 255, 255, 0.94);
-  border: 1px solid #999;
-  color: #18181b;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid #dcdcd8;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  color: var(--ink);
   white-space: nowrap;
 }
 
 .map2d-building-pin.map-pin-active {
-  background: #18181b;
-  border-color: #18181b;
+  background: #222;
+  border-color: #222;
   color: white;
 }
 
@@ -1201,26 +1172,27 @@ button {
 
 .map2d-shortcut-badge {
   position: absolute;
-  border-radius: 4px;
+  border-radius: 6px;
   background: var(--orange);
   color: white;
   font-size: 11px;
   font-weight: 700;
-  padding: 2px 7px;
-  border: 1px solid #c2410c;
+  padding: 3px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 2px 8px rgba(239, 108, 38, 0.3);
   white-space: nowrap;
   pointer-events: none;
 }
 
 .map2d-landmark-chip {
   position: absolute;
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.88);
-  border: 1px dashed #aaa;
-  color: #555;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid #e2e2df;
+  color: #666;
   font-size: 10.5px;
   font-weight: 500;
-  padding: 2px 5px;
+  padding: 2px 6px;
   white-space: nowrap;
   pointer-events: none;
 }
@@ -1228,107 +1200,99 @@ button {
 .map2d-active-step-pin {
   position: absolute;
   pointer-events: auto;
-  border-radius: 4px;
-  padding: 3px 8px;
+  border-radius: 999px;
+  padding: 3px 9px;
   font-size: 11px;
   font-weight: 700;
-  background: #fde047;
-  color: #18181b;
-  border: 1.5px solid #18181b;
+  background: #222;
+  color: white;
+  border: 1.5px solid white;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
   white-space: nowrap;
 }
 
-/* Bottom Floating Building Detail Panel */
-.building-detail-drawer {
-  position: absolute;
-  left: 12px;
-  bottom: 12px;
-  right: 158px;
-  max-height: min(230px, 55%);
-  z-index: 1000;
-  display: flex;
-  flex-direction: column;
-  border: 1px solid #ddd;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.97);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
-  overflow: hidden;
+/* Integrated Bottom Slot: Building Detail Card & Idle Route Notice */
+.route-summary-idle p {
+  margin: 0;
+  font-size: 12px;
+  color: #888;
 }
 
-.detail-header {
+.building-summary {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.building-summary-top {
+  display: flex;
+  align-items: flex-start;
   justify-content: space-between;
-  gap: 8px;
-  flex-wrap: wrap;
-  padding: 9px 12px;
-  background: #fafafa;
-  border-bottom: 1px solid var(--line);
-  font-size: 13px;
-  flex-shrink: 0;
+  gap: 10px;
 }
 
 .building-alias-text {
   margin-left: 6px;
   font-size: 11.5px;
-  color: #777;
+  font-weight: 400;
+  color: #888;
 }
 
-.building-drawer-actions {
+.building-summary-specs {
   display: flex;
-  gap: 5px;
-  flex-shrink: 0;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #f8f8f7;
+  font-size: 11.5px;
 }
 
-.strip-btn {
-  padding: 4px 9px;
-  font-size: 11.5px;
+.building-summary-specs > div {
+  display: flex;
+  gap: 10px;
+  line-height: 1.45;
+}
+
+.building-summary-specs span {
+  flex: 0 0 54px;
+  color: #888;
+}
+
+.building-summary-specs strong {
+  color: #333;
   font-weight: 500;
+}
+
+.building-summary-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.building-action-btn {
+  height: 38px;
   border: 1px solid #ddd;
-  border-radius: 6px;
+  border-radius: 8px;
   background: white;
   color: #333;
-}
-
-.strip-btn:hover {
-  border-color: #18181b;
-  background: #f4f4f2;
-}
-
-.building-detail-grid {
-  overflow-y: auto;
-}
-
-.data-table {
-  width: 100%;
-  border-collapse: collapse;
-  text-align: left;
   font-size: 12px;
+  font-weight: 600;
 }
 
-.data-table th,
-.data-table td {
-  padding: 6px 12px;
-  border-bottom: 1px solid #f0f0ee;
-  line-height: 1.5;
+.building-action-btn:hover {
+  border-color: #bbb;
+  background: #f8f8f7;
 }
 
-.data-table tr:last-child th,
-.data-table tr:last-child td {
-  border-bottom: none;
+.building-action-btn.primary {
+  border-color: #222;
+  background: #222;
+  color: white;
 }
 
-.data-table tbody th {
-  width: 86px;
-  background: #fafafa;
-  color: #666;
-  font-weight: 500;
-}
-
-.mono-cell {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 11.5px;
-  color: #444;
+.building-action-btn.primary:hover {
+  background: #333;
 }
 
 /* Steps List Tab inside Artifact */
@@ -1691,10 +1655,6 @@ button {
     right: 0;
     height: calc(100dvh - 58px);
     z-index: 40;
-  }
-  .building-detail-drawer {
-    right: 54px;
-    max-height: 62%;
   }
 }
 
