@@ -551,6 +551,14 @@ export const Map2DViewer: React.FC<Map2DViewerProps> = (props) => {
     if (step) map.panTo(toLatLng(step.position));
   }, [activeStepIndex, routeResult]);
 
+  // 8. 건물 선택 시(대화 또는 마커 클릭) 해당 건물 위치로 이동
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || selectedBuildingId === null) return;
+    const building = buildings.find((b) => b.id === selectedBuildingId);
+    if (building) map.panTo(toLatLng(building.position));
+  }, [selectedBuildingId, buildings]);
+
   return (
     <section className="map2d-section" aria-label="2D 캠퍼스 픽셀 좌표 지도 뷰어">
       <div
