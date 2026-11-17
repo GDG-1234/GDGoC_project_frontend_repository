@@ -207,7 +207,7 @@ export const GuideWorkspacePage: React.FC = () => {
   const [mapPickTarget, setMapPickTarget] = useState<MapPickTarget>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
-  // have_a_look 시안 레이아웃 상태
+  // 챗봇·아티팩트 레이아웃 상태
   const [activeSection, setActiveSection] = useState<NavSectionKey>('chat');
   const [artifact, setArtifact] = useState<'map' | 'notice' | null>(null);
   const [isStepsSheetOpen, setIsStepsSheetOpen] = useState<boolean>(false);

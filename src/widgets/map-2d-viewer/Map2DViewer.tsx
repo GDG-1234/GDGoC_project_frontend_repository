@@ -591,7 +591,7 @@ export const Map2DViewer: React.FC<Map2DViewerProps> = (props) => {
           </label>
         </div>
 
-        {/* 우상단: 확대 / 축소 / 초기 위치 (have_a_look .map-controls) */}
+        {/* 우상단: 확대 / 축소 / 초기 위치 */}
         <div className="map-controls" role="group" aria-label="지도 조작">
           <button
             type="button"
@@ -622,7 +622,7 @@ export const Map2DViewer: React.FC<Map2DViewerProps> = (props) => {
           </button>
         </div>
 
-        {/* 좌하단: 다크 알약 배지 (have_a_look .map-label) */}
+        {/* 좌하단: 다크 알약 배지 */}
         {routeResult && activeStep && (
           <div className="map-label">
             <Icon name="walk" size={14} />

@@ -44,7 +44,7 @@ button {
 }
 
 /* ============================================================================
- * App Shell & Desktop Sidebar (have_a_look 시안 기준)
+ * App Shell & Desktop Sidebar (디자인 시안 기준)
  * ============================================================================ */
 
 .app-shell {
@@ -1169,7 +1169,7 @@ button {
   color: #555;
 }
 
-/* have_a_look 시안 우상단 줌 컨트롤 */
+/* 지도 우상단 줌 컨트롤 */
 .map-controls {
   position: absolute;
   top: 14px;
@@ -1209,7 +1209,7 @@ button {
   background: #f5f5f3;
 }
 
-/* have_a_look 시안 좌하단 다크 알약 배지 */
+/* 지도 좌하단 다크 알약 배지 */
 .map-label {
   position: absolute;
   left: 14px;
@@ -1601,7 +1601,7 @@ button {
 }
 
 /* ============================================================================
- * Responsive Rules (have_a_look 시안 기준)
+ * Responsive Rules (디자인 시안 기준)
  * ============================================================================ */
 
 .mobile-header,
