@@ -1049,12 +1049,12 @@ export const GuideWorkspacePage: React.FC = () => {
                 >
                   <button
                     type="button"
-                    className="carousel-arrow-btn"
+                    className="carousel-arrow-btn carousel-arrow-btn-prev"
                     disabled={safeStepIndex <= 0}
                     onClick={() => moveActiveStep(safeStepIndex - 1)}
                     aria-label="이전 이동 단계"
                   >
-                    ‹
+                    <Icon name="arrow" size={19} strokeWidth={2.5} />
                   </button>
 
                   <div className="route-title route-step-card-body">
@@ -1090,7 +1090,7 @@ export const GuideWorkspacePage: React.FC = () => {
                     onClick={() => moveActiveStep(safeStepIndex + 1)}
                     aria-label="다음 이동 단계"
                   >
-                    ›
+                    <Icon name="arrow" size={19} strokeWidth={2.5} />
                   </button>
                 </div>
 

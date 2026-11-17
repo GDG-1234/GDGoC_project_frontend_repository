@@ -619,6 +619,9 @@ button {
  * ============================================================================ */
 
 .artifact {
+  position: relative;
+  z-index: 1;
+  isolation: isolate;
   flex: 0 1 560px;
   min-width: 440px;
   max-width: 600px;
@@ -908,6 +911,8 @@ button {
 
 .artifact-map-wrap {
   position: relative;
+  z-index: 1;
+  isolation: isolate;
   flex: 1 1 auto;
   min-height: 260px;
   display: flex;
@@ -938,21 +943,22 @@ button {
   height: 32px;
   display: grid;
   place-items: center;
-  border: 1px solid var(--line);
-  border-radius: 50%;
-  background: white;
-  color: #333;
-  font-size: 18px;
-  line-height: 1;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #222;
+}
+
+.carousel-arrow-btn-prev svg {
+  transform: rotate(180deg);
 }
 
 .carousel-arrow-btn:hover:not(:disabled) {
-  border-color: #bbb;
-  background: #f5f5f3;
+  background: #f3f3f1;
 }
 
 .carousel-arrow-btn:disabled {
-  opacity: 0.28;
+  opacity: 0.22;
   cursor: not-allowed;
 }
 
@@ -1630,7 +1636,7 @@ button {
   }
   .mobile-header {
     position: fixed;
-    z-index: 30;
+    z-index: 1200;
     top: 0;
     left: 0;
     right: 0;
@@ -1698,7 +1704,7 @@ button {
   .mobile-drawer {
     display: block;
     position: fixed;
-    z-index: 50;
+    z-index: 2000;
     inset: 0;
   }
   .drawer-backdrop {
@@ -1724,7 +1730,7 @@ button {
     }
   }
 
-  .conversation {
+  .app-shell.artifact-open .conversation {
     height: 45%;
     border-bottom: 1px solid var(--line);
   }
@@ -1797,7 +1803,7 @@ button {
     left: 0;
     right: 0;
     height: calc(100dvh - 58px);
-    z-index: 40;
+    z-index: 1300;
   }
 }
 

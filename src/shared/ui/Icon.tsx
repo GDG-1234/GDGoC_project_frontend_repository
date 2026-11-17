@@ -21,6 +21,7 @@ export type IconName =
 interface IconProps {
   name: IconName;
   size?: number;
+  strokeWidth?: number;
 }
 
 const ICON_PATHS: Record<IconName, ReactNode> = {
@@ -92,7 +93,11 @@ const ICON_PATHS: Record<IconName, ReactNode> = {
   ),
 };
 
-export const Icon: React.FC<IconProps> = ({ name, size = 20 }) => {
+export const Icon: React.FC<IconProps> = ({
+  name,
+  size = 20,
+  strokeWidth = 1.8,
+}) => {
   return (
     <svg
       width={size}
@@ -100,7 +105,7 @@ export const Icon: React.FC<IconProps> = ({ name, size = 20 }) => {
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth="1.8"
+      strokeWidth={strokeWidth}
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
