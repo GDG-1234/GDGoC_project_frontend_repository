@@ -1,11 +1,19 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  parseCampusQuery,
+  PortalTopic,
+  resolveBuildingByQuery,
+  resolvePlaceByQuery,
+} from '../features/chat-assistant/parseCampusQuery';
+import {
   ApiClientError,
   calculateRoute,
   fetchBuildingDetail,
   fetchBuildings,
   fetchMapInfo,
   fetchNearestPlace,
+  formatDurationText,
+  formatFloorLabel,
   getUseMockMode,
   searchPlaces,
   setUseMockMode,
@@ -19,198 +27,701 @@ import {
   RouteMode,
   RouteResponse,
 } from '../shared/types/api';
+import { MapPickTarget } from '../shared/types/ui';
+import { Icon } from '../shared/ui/Icon';
+import { ArtifactStepsPanel } from '../widgets/artifact-steps/ArtifactStepsPanel';
 import { BuildingDetailPanel } from '../widgets/building-detail/BuildingDetailPanel';
+import {
+  ChatArtifactPayload,
+  ChatMessage,
+  ChatPanel,
+  PromptSuggestionItem,
+} from '../widgets/chat-panel/ChatPanel';
 import { Map2DViewer } from '../widgets/map-2d-viewer/Map2DViewer';
-import { RouteSidebar } from '../widgets/route-sidebar/RouteSidebar';
-import { MapPickTarget, RoutePreset } from '../shared/types/ui';
+import {
+  NavSectionKey,
+  NavSidebar,
+} from '../widgets/nav-sidebar/NavSidebar';
+import {
+  PortalArtifactPanel,
+  PortalNoticeItem,
+} from '../widgets/portal-artifact/PortalArtifactPanel';
 
-// 초기 출발지/도착지 및 검증 프리셋 (Mock과 실서버 데이터 구성이 달라 소스별로 맞춘다)
-const MOCK_DEFAULT_ROUTE = { from: '팔정도', to: '신공학관 4142호' };
-const LIVE_DEFAULT_ROUTE = { from: '혜화관', to: '신공학관 3층' };
-
-const MOCK_ROUTE_PRESETS: RoutePreset[] = [
-  { label: '팔정도 → 신공 4142호', from: '팔정도', to: '신공학관 4142호' },
-  { label: '혜화관 3층 → 경영관 3층', from: '혜화관 3층', to: '경영관 3층' },
-  { label: '후문 → 명진관 1층', from: '후문', to: '명진관 1층' },
+const LIVE_SUGGESTIONS: PromptSuggestionItem[] = [
+  { label: '혜화관에서 신공학관 3층까지 길 알려줘', icon: 'map' },
+  { label: '오늘 학생식당 점심 메뉴 알려줘', icon: 'bookmark' },
+  { label: '이번 주 주요 학사 일정 확인하기', icon: 'notice' },
 ];
 
-const LIVE_ROUTE_PRESETS: RoutePreset[] = [
-  { label: '정문 → 중앙도서관', from: '정문', to: '중앙도서관' },
-  { label: '혜화관 → 신공 3층', from: '혜화관', to: '신공학관 3층' },
-  { label: '신공 4층 → 대운동장', from: '신공학관 4층', to: '대운동장' },
-  { label: '동대입구 → 문화관 B1', from: '동대입구 방향 입구', to: '문화관 B1층' },
+const MOCK_SUGGESTIONS: PromptSuggestionItem[] = [
+  { label: '팔정도에서 신공학관 4142호까지 길 알려줘', icon: 'map' },
+  { label: '명진관 편의시설이랑 운영시간 알려줘', icon: 'bookmark' },
+  { label: '이번 주 주요 학사 일정 확인하기', icon: 'notice' },
 ];
 
-// 이름으로 장소 하나를 찾는다. 완전 일치가 있으면 그것을, 없으면 첫 번째 결과를 쓴다.
-async function findPlaceByName(name: string): Promise<PlaceSummary | null> {
-  const res = await searchPlaces({ q: name, limit: 10 });
-  return res.items.find((p) => p.name === name) ?? res.items[0] ?? null;
+const PORTAL_NOTICE_ITEMS: PortalNoticeItem[] = [
+  {
+    category: '서비스',
+    title: '캠퍼스 2D 실내 길안내 및 층 단면도 기능이 연동되었어요',
+    meta: 'v1 길안내 · 혜화관 → 신공학관 3층 바로 보기',
+    followUpPrompt: '혜화관에서 신공학관 3층까지 길 알려줘',
+  },
+  {
+    category: '학식 (예정)',
+    title: '오늘의 학생식당(상록원·남산학사) 메뉴 통합 준비 중',
+    meta: '포털 확장 예정 · 상록원 가는 길 보기',
+    followUpPrompt: '후문에서 상록원 가는 길 알려줘',
+  },
+  {
+    category: '학사·도서 (예정)',
+    title: '학사 공지 · 도서 검색 · 채용 일정 모아보기 준비 중',
+    meta: '포털 확장 예정 · 중앙도서관 정보 보기',
+    followUpPrompt: '중앙도서관 편의시설 알려줘',
+  },
+];
+
+function createId(prefix: string): string {
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+}
+
+function buildPortalReply(topic: PortalTopic): {
+  text: string;
+  suggestions: string[];
+} {
+  switch (topic) {
+    case 'CAFETERIA':
+      return {
+        text:
+          '오늘의 학생식당 메뉴 조회 기능은 캠퍼스 포털 확장 단계에서 연동 준비 중이에요.\n' +
+          '대신 상록원 위치나 가는 길은 지도 아티팩트에서 바로 안내해 드릴 수 있습니다.',
+        suggestions: ['후문에서 상록원 가는 길 알려줘', '상록원 정보 알려줘'],
+      };
+    case 'LIBRARY':
+      return {
+        text:
+          '도서 검색과 열람실 좌석 현황은 포털 확장 단계에서 연결될 예정이에요.\n' +
+          '중앙도서관 위치와 운영시간·편의시설은 지금 바로 확인해 드릴 수 있습니다.',
+        suggestions: ['정문에서 중앙도서관 가는 길', '중앙도서관 편의시설 알려줘'],
+      };
+    case 'NOTICE':
+      return {
+        text:
+          '이번 주 학사 일정과 주요 공지 요약은 포털 통합 단계에서 연결될 예정이에요.\n' +
+          '오른쪽 공지 아티팩트에서 예정 안내 항목을 확인하거나 관련 건물로 이동할 수 있습니다.',
+        suggestions: [
+          '혜화관에서 신공학관 3층까지 길 알려줘',
+          '정문에서 중앙도서관 가는 길',
+        ],
+      };
+    case 'HELP':
+    default:
+      return {
+        text:
+          '동국대 캠퍼스 길안내와 건물 정보를 대화로 물어보실 수 있어요.\n' +
+          '예: "혜화관에서 신공학관 3층 가는 길", "정문 → 중앙도서관 편한 길", "과학관 편의시설"',
+        suggestions: [
+          '혜화관에서 신공학관 3층까지 길 알려줘',
+          '동대입구 방향 입구에서 문화관 B1층 가는 길',
+          '과학관 편의시설 알려줘',
+        ],
+      };
+  }
+}
+
+function formatRouteReply(
+  from: PlaceSummary,
+  to: PlaceSummary,
+  res: RouteResponse,
+  mode: RouteMode,
+  avoidRoad: boolean,
+  usedDefaultOrigin: boolean
+): string {
+  const { summary, steps } = res;
+  const optionLabel = [
+    mode === 'EASIEST' ? '편한 길' : '빠른 길',
+    avoidRoad ? '차도 피하기' : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+
+  const lines: string[] = [];
+  if (usedDefaultOrigin) {
+    lines.push(`출발지가 지정되지 않아 '${from.name}' 출발 기준으로 안내할게요.`);
+  }
+  lines.push(
+    `${from.name}에서 ${to.name}까지(${optionLabel}) ${formatDurationText(
+      summary.totalSeconds
+    )} 정도 걸려요.`
+  );
+  lines.push(
+    `예상 열량은 ${summary.totalKcal} kcal, 실내 층변경은 ${summary.floorChanges}회입니다.`
+  );
+  if (summary.usesShortcut && summary.savedSeconds && summary.savedSeconds > 0) {
+    lines.push(
+      `★ 학교 지름길이 포함되어 일반 길보다 ${formatDurationText(
+        summary.savedSeconds
+      )} 더 빨라요.`
+    );
+  }
+  const preview = steps.slice(1, 3).map((s) => `${s.index + 1}. ${s.text}`);
+  if (preview.length > 0) {
+    lines.push(preview.join('\n'));
+  }
+  return lines.join('\n\n');
+}
+
+function formatBuildingReply(detail: BuildingDetailResponse): string {
+  const floors = detail.floors.map((f) => f.label).join(' · ') || '정보 없음';
+  const facilities =
+    detail.facilities.length > 0
+      ? detail.facilities
+          .map((fac) => `${fac.name}(${fac.floorDescription})`)
+          .join(', ')
+      : '등록된 편의시설 없음';
+
+  return [
+    `${detail.name} 정보를 오른쪽 지도 아티팩트에 표시해 두었어요.`,
+    `• 운영 시간: ${detail.operatingHours || '-'}\n• 전화번호: ${
+      detail.phone || '-'
+    }\n• 보유 층: ${floors}\n• 편의시설: ${facilities}`,
+  ].join('\n\n');
 }
 
 export const GuideWorkspacePage: React.FC = () => {
   const [useMock, setUseMock] = useState<boolean>(getUseMockMode());
+  const [hasServerError, setHasServerError] = useState<boolean>(false);
   const [mapInfo, setMapInfo] = useState<MapInfoResponse>(MOCK_MAP_INFO);
   const [buildings, setBuildings] = useState<BuildingSummary[]>([]);
   const [selectedBuilding, setSelectedBuilding] =
     useState<BuildingDetailResponse | null>(null);
 
-  // 출발지 / 도착지 / 경로 옵션 상태
+  // 경로 탐색 상태
   const [fromPlace, setFromPlace] = useState<PlaceSummary | null>(null);
   const [toPlace, setToPlace] = useState<PlaceSummary | null>(null);
   const [mode, setMode] = useState<RouteMode>('FASTEST');
   const [avoidRoad, setAvoidRoad] = useState<boolean>(false);
-
-  // 경로 결과 및 선택된 step 상태
   const [routeResult, setRouteResult] = useState<RouteResponse | null>(null);
   const [activeStepIndex, setActiveStepIndex] = useState<number | null>(0);
   const [mapPickTarget, setMapPickTarget] = useState<MapPickTarget>(null);
-  const [errorText, setErrorText] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const routeRequestIdRef = useRef(0);
 
-  // 지도 보조 라벨(랜드마크/출입구). /places는 q가 필수라 전체 목록 API가 없으므로
-  // mock 모드에서만 mock 장소를 쓰고, 실서버 모드에서는 건물 마커만 표시한다.
+  // have_a_look 시안 레이아웃 상태
+  const [activeSection, setActiveSection] = useState<NavSectionKey>('chat');
+  const [artifact, setArtifact] = useState<'map' | 'notice' | null>(null);
+  const [artifactTab, setArtifactTab] = useState<'MAP' | 'STEPS'>('MAP');
+  const [artifactTitle, setArtifactTitle] = useState<string>('동국대 2D 캠퍼스 지도');
+  const [activeArtifactId, setActiveArtifactId] = useState<string | null>(null);
+  const [artifactError, setArtifactError] = useState<string | null>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [artifactHistory, setArtifactHistory] = useState<ChatArtifactPayload[]>(
+    []
+  );
+
+  const requestIdRef = useRef(0);
+
   const landmarks: PlaceSummary[] = useMock
     ? MOCK_PLACES.filter(
         (p) => p.category === 'LANDMARK' || p.category === 'ENTRANCE'
       )
     : [];
 
-  // 데이터 소스가 바뀔 때마다 기본 출발지/도착지를 해당 소스에서 다시 찾는다.
-  useEffect(() => {
-    let cancelled = false;
-    const defaults = useMock ? MOCK_DEFAULT_ROUTE : LIVE_DEFAULT_ROUTE;
-    async function loadDefaults() {
-      try {
-        const [f, t] = await Promise.all([
-          findPlaceByName(defaults.from),
-          findPlaceByName(defaults.to),
-        ]);
-        if (!cancelled) {
-          setFromPlace(f);
-          setToPlace(t);
-        }
-      } catch {
-        if (!cancelled) {
-          setFromPlace(null);
-          setToPlace(null);
-          setRouteResult(null);
-        }
+  const loadMapAndBuildings = useCallback(async () => {
+    try {
+      const [mInfo, bList] = await Promise.all([
+        fetchMapInfo(),
+        fetchBuildings(),
+      ]);
+      setMapInfo(mInfo);
+      setBuildings(bList.items);
+      setHasServerError(false);
+      setArtifactError(null);
+      return true;
+    } catch (err) {
+      setHasServerError(true);
+      if (err instanceof ApiClientError) {
+        setArtifactError(err.message);
+      } else {
+        setArtifactError('백엔드 서버와 연결할 수 없습니다.');
       }
+      return false;
     }
-    loadDefaults();
-    return () => {
-      cancelled = true;
-    };
-  }, [useMock]);
+  }, []);
 
-  // 앱 시작 시 GET /map 및 GET /buildings 호출
   useEffect(() => {
-    let cancelled = false;
-    async function initMapAndBuildings() {
-      try {
-        const [mInfo, bList] = await Promise.all([
-          fetchMapInfo(),
-          fetchBuildings(),
-        ]);
-        if (!cancelled) {
-          setMapInfo(mInfo);
-          setBuildings(bList.items);
-        }
-      } catch (err) {
-        if (!cancelled && err instanceof ApiClientError) {
-          setErrorText(err.message);
-        }
-      }
-    }
-    initMapAndBuildings();
-    return () => {
-      cancelled = true;
-    };
-  }, [useMock]);
+    void loadMapAndBuildings();
+  }, [useMock, loadMapAndBuildings]);
 
-  // 출발지·도착지·옵션이 바뀔 때마다 POST /routes 실행
-  const runRouteCalculation = useCallback(async () => {
-    if (!fromPlace || !toPlace) return;
-    const requestId = ++routeRequestIdRef.current;
+  const registerArtifact = (item: ChatArtifactPayload) => {
+    setArtifactHistory((prev) => [
+      item,
+      ...prev
+        .filter(
+          (existing) =>
+            existing.id !== item.id &&
+            !(existing.kind === item.kind && existing.title === item.title)
+        )
+        .slice(0, 5),
+    ]);
+  };
+
+  const appendAssistantMessage = (
+    text: string,
+    extra?: Partial<Omit<ChatMessage, 'id' | 'role' | 'text'>>
+  ) => {
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: createId('msg-ai'),
+        role: 'assistant',
+        text,
+        ...extra,
+      },
+    ]);
+  };
+
+  const applyRouteState = (
+    from: PlaceSummary,
+    to: PlaceSummary,
+    res: RouteResponse,
+    nextMode: RouteMode,
+    nextAvoidRoad: boolean,
+    artifactId: string
+  ) => {
+    setFromPlace(from);
+    setToPlace(to);
+    setMode(nextMode);
+    setAvoidRoad(nextAvoidRoad);
+    setRouteResult(res);
+    setActiveStepIndex(0);
+    setSelectedBuilding(null);
+    setActiveSection('map');
+    setArtifactTitle(`${from.name} → ${to.name}`);
+    setArtifactTab('MAP');
+    setActiveArtifactId(artifactId);
+    setArtifactError(null);
+    setArtifact('map');
+  };
+
+  const handleFallbackToMock = () => {
+    setUseMockMode(true);
+    setUseMock(true);
+    setHasServerError(false);
+    setFromPlace(null);
+    setToPlace(null);
+    setRouteResult(null);
+    setSelectedBuilding(null);
+    setActiveArtifactId(null);
+    setArtifactTitle('동국대 2D 캠퍼스 지도 (Mock)');
+    setArtifactError(null);
+    if (messages.length > 0) {
+      appendAssistantMessage(
+        '오프라인 Mock 데이터 모드로 전환했어요. 아래 추천 질문을 누르거나 지도에서 건물을 선택해 보세요.',
+        {
+          suggestions: MOCK_SUGGESTIONS.slice(0, 2).map((s) => s.label),
+        }
+      );
+    }
+  };
+
+  const handleRetryLiveServer = () => {
+    setUseMockMode(false);
+    setUseMock(false);
+    setFromPlace(null);
+    setToPlace(null);
+    setRouteResult(null);
+    setSelectedBuilding(null);
+    setActiveArtifactId(null);
+    setArtifactTitle('동국대 2D 캠퍼스 지도');
+    setArtifactError(null);
+  };
+
+  const runRouteAndAnnounce = async (
+    from: PlaceSummary,
+    to: PlaceSummary,
+    nextMode: RouteMode,
+    nextAvoidRoad: boolean,
+    usedDefaultOrigin = false
+  ) => {
+    const reqId = ++requestIdRef.current;
     setIsLoading(true);
-    setErrorText(null);
+    setArtifactError(null);
+    try {
+      const res = await calculateRoute({
+        from: { placeId: from.id },
+        to: { placeId: to.id },
+        options: {
+          mode: nextMode,
+          avoidRoad: nextAvoidRoad,
+          compare: true,
+        },
+      });
+      if (reqId !== requestIdRef.current) return;
+
+      const artifactId = createId('artifact');
+      const payload: ChatArtifactPayload = {
+        id: artifactId,
+        kind: 'ROUTE',
+        title: `${from.name} → ${to.name}`,
+        fromPlace: from,
+        toPlace: to,
+        routeResult: res,
+        mode: nextMode,
+        avoidRoad: nextAvoidRoad,
+      };
+      registerArtifact(payload);
+      applyRouteState(from, to, res, nextMode, nextAvoidRoad, artifactId);
+      appendAssistantMessage(
+        formatRouteReply(
+          from,
+          to,
+          res,
+          nextMode,
+          nextAvoidRoad,
+          usedDefaultOrigin
+        ),
+        { artifact: payload }
+      );
+    } catch (err) {
+      if (reqId !== requestIdRef.current) return;
+      const isConnErr =
+        err instanceof ApiClientError && err.code === 'INTERNAL_ERROR';
+      if (isConnErr) setHasServerError(true);
+      const errMsg =
+        err instanceof ApiClientError
+          ? err.message
+          : '경로를 계산하는 중 문제가 발생했어요.';
+      setArtifactError(errMsg);
+      appendAssistantMessage(errMsg, {
+        isError: true,
+        canFallbackToMock: isConnErr && !useMock,
+        suggestions:
+          !isConnErr && (nextAvoidRoad || nextMode === 'EASIEST')
+            ? [`${from.name}에서 ${to.name} 빠른 길로 알려줘`]
+            : undefined,
+      });
+    } finally {
+      if (reqId === requestIdRef.current) setIsLoading(false);
+    }
+  };
+
+  const handleSendMessage = async (rawText: string) => {
+    const text = rawText.trim();
+    if (!text) return;
+
+    setMessages((prev) => [
+      ...prev,
+      { id: createId('msg-user'), role: 'user', text },
+    ]);
+
+    const intent = parseCampusQuery(text, buildings);
+
+    if (intent.kind === 'PORTAL_INFO') {
+      const reply = buildPortalReply(intent.topic);
+      if (intent.topic === 'NOTICE' || intent.topic === 'CAFETERIA' || intent.topic === 'LIBRARY') {
+        const artifactId = createId('artifact');
+        const noticePayload: ChatArtifactPayload = {
+          id: artifactId,
+          kind: 'NOTICE',
+          title: '학사 공지 · 캠퍼스 안내 보기',
+        };
+        registerArtifact(noticePayload);
+        setActiveSection('notice');
+        setActiveArtifactId(artifactId);
+        setArtifact('notice');
+        appendAssistantMessage(reply.text, {
+          artifact: noticePayload,
+          suggestions: reply.suggestions,
+        });
+      } else {
+        appendAssistantMessage(reply.text, { suggestions: reply.suggestions });
+      }
+      return;
+    }
+
+    if (intent.kind === 'ROUTE') {
+      const nextMode = intent.mode ?? mode;
+      const nextAvoidRoad = intent.avoidRoad ?? avoidRoad;
+      const usedDefaultOrigin = !intent.fromQuery && !fromPlace;
+      setIsLoading(true);
+      try {
+        const [resolvedFrom, resolvedTo] = await Promise.all([
+          intent.fromQuery
+            ? resolvePlaceByQuery(intent.fromQuery)
+            : Promise.resolve(fromPlace ?? (await resolvePlaceByQuery('정문'))),
+          resolvePlaceByQuery(intent.toQuery),
+        ]);
+
+        if (!resolvedFrom || !resolvedTo) {
+          setIsLoading(false);
+          const missing = !resolvedFrom
+            ? intent.fromQuery || '출발지'
+            : intent.toQuery;
+          appendAssistantMessage(
+            `'${missing}'에 해당하는 장소를 찾지 못했어요. 건물 이름이나 층을 확인해서 다시 물어봐 주세요.`,
+            {
+              isError: true,
+              suggestions: (useMock ? MOCK_SUGGESTIONS : LIVE_SUGGESTIONS)
+                .slice(0, 2)
+                .map((s) => s.label),
+            }
+          );
+          return;
+        }
+
+        await runRouteAndAnnounce(
+          resolvedFrom,
+          resolvedTo,
+          nextMode,
+          nextAvoidRoad,
+          usedDefaultOrigin
+        );
+      } catch (err) {
+        setIsLoading(false);
+        const isConnErr =
+          err instanceof ApiClientError && err.code === 'INTERNAL_ERROR';
+        if (isConnErr) setHasServerError(true);
+        const msg =
+          err instanceof ApiClientError
+            ? err.message
+            : '서버와 통신하지 못했어요. 백엔드 서버 상태를 확인해 주세요.';
+        setArtifactError(msg);
+        appendAssistantMessage(msg, {
+          isError: true,
+          canFallbackToMock: !useMock,
+        });
+      }
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const matchedBuilding = resolveBuildingByQuery(intent.query, buildings);
+      if (matchedBuilding) {
+        const detail = await fetchBuildingDetail(matchedBuilding.id);
+        const artifactId = createId('artifact');
+        const payload: ChatArtifactPayload = {
+          id: artifactId,
+          kind: 'BUILDING',
+          title: `${detail.name} 정보 보기`,
+          buildingDetail: detail,
+        };
+        registerArtifact(payload);
+        setSelectedBuilding(detail);
+        setActiveSection('saved');
+        setArtifactTitle(`${detail.name} 정보`);
+        setArtifactTab('MAP');
+        setActiveArtifactId(artifactId);
+        setArtifactError(null);
+        setArtifact('map');
+        appendAssistantMessage(formatBuildingReply(detail), {
+          artifact: payload,
+          suggestions: [`정문에서 ${detail.name} 가는 길 알려줘`],
+        });
+        return;
+      }
+
+      const place = await resolvePlaceByQuery(intent.query);
+      if (place && place.buildingId !== null) {
+        const detail = await fetchBuildingDetail(place.buildingId);
+        const artifactId = createId('artifact');
+        const payload: ChatArtifactPayload = {
+          id: artifactId,
+          kind: 'BUILDING',
+          title: `${detail.name} 정보 보기`,
+          buildingDetail: detail,
+        };
+        registerArtifact(payload);
+        setSelectedBuilding(detail);
+        setActiveSection('saved');
+        setArtifactTitle(`${detail.name} 정보`);
+        setArtifactTab('MAP');
+        setActiveArtifactId(artifactId);
+        setArtifactError(null);
+        setArtifact('map');
+        appendAssistantMessage(formatBuildingReply(detail), {
+          artifact: payload,
+          suggestions: [`정문에서 ${place.name} 가는 길 알려줘`],
+        });
+        return;
+      }
+
+      if (place) {
+        appendAssistantMessage(
+          `'${place.name}'은(는) 교내 주요 지점(${formatFloorLabel(
+            place.floor
+          )})이에요. 어디로 이동할지 함께 말씀해 주세요!`,
+          {
+            suggestions: [
+              `${place.name}에서 신공학관 3층 가는 길`,
+              `정문에서 ${place.name} 가는 길`,
+            ],
+          }
+        );
+        return;
+      }
+
+      appendAssistantMessage(
+        `'${text}'에 맞는 장소나 경로를 찾지 못했어요. 출발지·도착지나 건물 이름을 포함해 질문해 보세요.`,
+        {
+          suggestions: (useMock ? MOCK_SUGGESTIONS : LIVE_SUGGESTIONS).map(
+            (s) => s.label
+          ),
+        }
+      );
+    } catch (err) {
+      const isConnErr =
+        err instanceof ApiClientError && err.code === 'INTERNAL_ERROR';
+      if (isConnErr) setHasServerError(true);
+      const msg =
+        err instanceof ApiClientError
+          ? err.message
+          : '서버와 통신하는 중 오류가 발생했어요.';
+      setArtifactError(msg);
+      appendAssistantMessage(msg, {
+        isError: true,
+        canFallbackToMock: !useMock,
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleOpenArtifact = (payload: ChatArtifactPayload) => {
+    setActiveArtifactId(payload.id);
+    setArtifactError(null);
+
+    if (payload.kind === 'NOTICE') {
+      setActiveSection('notice');
+      setArtifact('notice');
+      return;
+    }
+
+    setArtifactTab('MAP');
+    if (
+      payload.kind === 'ROUTE' &&
+      payload.routeResult &&
+      payload.fromPlace &&
+      payload.toPlace
+    ) {
+      applyRouteState(
+        payload.fromPlace,
+        payload.toPlace,
+        payload.routeResult,
+        payload.mode ?? mode,
+        payload.avoidRoad ?? avoidRoad,
+        payload.id
+      );
+    } else if (payload.kind === 'BUILDING' && payload.buildingDetail) {
+      setActiveSection('saved');
+      setSelectedBuilding(payload.buildingDetail);
+      setArtifactTitle(`${payload.buildingDetail.name} 정보`);
+      setArtifact('map');
+    }
+  };
+
+  const selectSection = (section: NavSectionKey) => {
+    setActiveSection(section);
+
+    if (section === 'chat') {
+      setMessages([]);
+      setArtifact(null);
+      setRouteResult(null);
+      setFromPlace(null);
+      setToPlace(null);
+      setSelectedBuilding(null);
+      setActiveArtifactId(null);
+      setMapPickTarget(null);
+      return;
+    }
+
+    if (section === 'notice') {
+      setArtifact('notice');
+      return;
+    }
+
+    setArtifactTab('MAP');
+    if (section === 'saved') {
+      if (!selectedBuilding) setArtifactTitle('건물 · 편의시설 지도');
+    } else if (!routeResult) {
+      setArtifactTitle('동국대 2D 캠퍼스 지도');
+    }
+    setArtifact('map');
+  };
+
+  const recalculateActiveRouteIfNeeded = async (
+    nextMode: RouteMode,
+    nextAvoidRoad: boolean
+  ) => {
+    setMode(nextMode);
+    setAvoidRoad(nextAvoidRoad);
+    if (!fromPlace || !toPlace) return;
+    const reqId = ++requestIdRef.current;
+    setIsLoading(true);
+    setArtifactError(null);
     try {
       const res = await calculateRoute({
         from: { placeId: fromPlace.id },
         to: { placeId: toPlace.id },
-        options: {
-          mode,
-          avoidRoad,
-          compare: true,
-        },
+        options: { mode: nextMode, avoidRoad: nextAvoidRoad, compare: true },
       });
-      if (requestId !== routeRequestIdRef.current) return; // 더 최신 요청이 있으면 무시
+      if (reqId !== requestIdRef.current) return;
       setRouteResult(res);
       setActiveStepIndex(0);
     } catch (err) {
-      if (requestId !== routeRequestIdRef.current) return;
-      setRouteResult(null);
-      if (err instanceof ApiClientError) {
-        setErrorText(err.message);
-      } else {
-        setErrorText('경로를 불러오는 중 오류가 발생했습니다.');
-      }
+      if (reqId !== requestIdRef.current) return;
+      if (err instanceof ApiClientError) setArtifactError(err.message);
     } finally {
-      if (requestId === routeRequestIdRef.current) setIsLoading(false);
+      if (reqId === requestIdRef.current) setIsLoading(false);
     }
-  }, [fromPlace, toPlace, mode, avoidRoad]);
+  };
 
-  useEffect(() => {
-    runRouteCalculation();
-  }, [runRouteCalculation]);
-
-  // 지도 클릭 시 GET /places/nearest 호출하여 출발지 또는 도착지 설정
   const handleMapPixelClick = async (x: number, y: number) => {
-    // 지도 선택 모드가 아닐 때의 클릭/드래그 종료는 출발지·도착지를 바꾸지 않는다.
     const target = mapPickTarget;
     if (!target) return;
     try {
       const nearest = await fetchNearestPlace({ x, y, floor: 0 });
-      if (target === 'TO') {
-        setToPlace(nearest.place);
-      } else {
-        setFromPlace(nearest.place);
-      }
       setMapPickTarget(null);
-    } catch (err) {
-      if (err instanceof ApiClientError) {
-        setErrorText(err.message);
+      const nextFrom = target === 'FROM' ? nearest.place : fromPlace;
+      const nextTo = target === 'TO' ? nearest.place : toPlace;
+      if (target === 'FROM') setFromPlace(nearest.place);
+      else setToPlace(nearest.place);
+
+      if (nextFrom && nextTo) {
+        await runRouteAndAnnounce(nextFrom, nextTo, mode, avoidRoad);
+      } else {
+        appendAssistantMessage(
+          `지도에서 '${nearest.place.name}'을(를) ${
+            target === 'FROM' ? '출발지' : '도착지'
+          }로 선택했어요.`
+        );
       }
+    } catch (err) {
+      if (err instanceof ApiClientError) setArtifactError(err.message);
     }
   };
 
-  // 건물 마커 클릭 시 GET /buildings/{buildingId} 호출
-  const handleSelectBuilding = async (buildingId: number) => {
+  const handleSelectBuildingOnMap = async (buildingId: number) => {
     try {
       const detail = await fetchBuildingDetail(buildingId);
       setSelectedBuilding(detail);
-    } catch (err) {
-      if (err instanceof ApiClientError) {
-        setErrorText(err.message);
+      if (!routeResult) {
+        setArtifactTitle(`${detail.name} 정보`);
       }
+      setArtifactError(null);
+    } catch (err) {
+      if (err instanceof ApiClientError) setArtifactError(err.message);
     }
   };
 
-  // 건물 상세 패널에서 출발지/도착지로 즉시 지정
   const handleSetBuildingAsEndpoint = async (
     buildingId: number,
     buildingName: string,
     target: 'FROM' | 'TO'
   ) => {
-    setErrorText(null);
+    setArtifactError(null);
     try {
-      // 중앙도서관(LIBRARY), 상록원(CAFETERIA), 만해광장·대운동장(LANDMARK)처럼
-      // 건물 자체 장소가 BUILDING 외 카테고리일 수 있으므로 category 필터 없이 조회한다.
-      const res = await searchPlaces({
-        q: buildingName,
-        limit: 20,
-      });
+      const res = await searchPlaces({ q: buildingName, limit: 20 });
       const place =
         res.items.find(
           (p) => p.buildingId === buildingId && p.name === buildingName
@@ -220,119 +731,389 @@ export const GuideWorkspacePage: React.FC = () => {
         res.items.find((p) => p.buildingId === buildingId) ??
         res.items[0];
       if (!place) {
-        setErrorText('이 건물에 해당하는 장소를 찾을 수 없어요.');
+        setArtifactError('이 건물에 해당하는 장소를 찾을 수 없어요.');
         return;
       }
+
+      const nextFrom = target === 'FROM' ? place : fromPlace;
+      const nextTo = target === 'TO' ? place : toPlace;
       if (target === 'FROM') setFromPlace(place);
       else setToPlace(place);
+
+      if (nextFrom && nextTo) {
+        await runRouteAndAnnounce(nextFrom, nextTo, mode, avoidRoad);
+      } else {
+        appendAssistantMessage(
+          `'${place.name}'을(를) ${
+            target === 'FROM' ? '출발지' : '도착지'
+          }로 지정했어요. ${
+            target === 'FROM' ? '도착지' : '출발지'
+          }도 알려주시면 경로를 그려드릴게요!`
+        );
+      }
     } catch (err) {
-      if (err instanceof ApiClientError) setErrorText(err.message);
+      if (err instanceof ApiClientError) setArtifactError(err.message);
     }
   };
 
-  const handleApplyPreset = async (fromName: string, toName: string) => {
-    try {
-      const [f, t] = await Promise.all([
-        findPlaceByName(fromName),
-        findPlaceByName(toName),
-      ]);
-      if (f) setFromPlace(f);
-      if (t) setToPlace(t);
-      if (!f || !t) setErrorText('프리셋 장소를 현재 데이터에서 찾을 수 없어요.');
-    } catch (err) {
-      if (err instanceof ApiClientError) setErrorText(err.message);
-    }
+  const closeArtifact = () => {
+    setArtifact(null);
+    setMapPickTarget(null);
+    setActiveSection('chat');
   };
 
-  const handleToggleMockMode = (nextMock: boolean) => {
-    setUseMockMode(nextMock);
-    setUseMock(nextMock);
-    setErrorText(null);
-  };
+  const activeStep =
+    activeStepIndex !== null && routeResult
+      ? routeResult.steps.find((s) => s.index === activeStepIndex) || null
+      : null;
+
+  const recentItems = artifactHistory.map((item) => ({
+    id: item.id,
+    label: item.title,
+  }));
 
   return (
-    <div className="app-shell">
-      <header className="topbar">
-        <div className="topbar-left">
-          <h1 className="app-title">아코봇 길안내</h1>
-        </div>
+    <div className={artifact ? 'app-shell artifact-open' : 'app-shell'}>
+      <div className={artifact ? 'desktop-sidebar collapsed' : 'desktop-sidebar'}>
+        <NavSidebar
+          active={activeSection}
+          recentItems={recentItems}
+          useMock={useMock}
+          hasServerError={hasServerError}
+          onSelectSection={selectSection}
+          onSelectRecent={(id) => {
+            const found = artifactHistory.find((a) => a.id === id);
+            if (found) handleOpenArtifact(found);
+          }}
+          onRetryLiveServer={handleRetryLiveServer}
+        />
+      </div>
 
-        {/* 데이터 소스 전환 (Mock 데이터 <-> 백엔드 FastAPI 서버) */}
-        <div className="mode-switcher" role="group" aria-label="API 데이터 소스 전환">
-          <button
-            type="button"
-            aria-pressed={useMock}
-            onClick={() => handleToggleMockMode(true)}
-            className={`mode-btn ${useMock ? 'mode-btn-active' : ''}`}
-          >
-            Mock 데이터 모드
-          </button>
-          <button
-            type="button"
-            aria-pressed={!useMock}
-            onClick={() => handleToggleMockMode(false)}
-            className={`mode-btn ${!useMock ? 'mode-btn-active' : ''}`}
-          >
-            실서버 API 연동 (/api/v1)
-          </button>
-        </div>
+      <header className="mobile-header">
+        <button
+          type="button"
+          className="icon-button"
+          onClick={() => setMobileMenuOpen(true)}
+          aria-label="메뉴 열기"
+        >
+          <Icon name="menu" />
+        </button>
+        <button
+          type="button"
+          className="brand"
+          onClick={() => selectSection('chat')}
+        >
+          <span className="brand-mark">A</span>
+          <span>아코봇</span>
+        </button>
+        <button
+          type="button"
+          className="icon-button"
+          onClick={() => selectSection('chat')}
+          aria-label="새 대화"
+        >
+          <Icon name="plus" />
+        </button>
       </header>
 
-      <main className="guide-main-grid">
-        {/* 좌측: 검색 / 옵션 / 요약 / 안내 목록 (3D 단계에서도 그대로 재사용) */}
-        <RouteSidebar
-          presets={useMock ? MOCK_ROUTE_PRESETS : LIVE_ROUTE_PRESETS}
-          fromPlace={fromPlace}
-          toPlace={toPlace}
-          mode={mode}
-          avoidRoad={avoidRoad}
-          routeResult={routeResult}
-          activeStepIndex={activeStepIndex}
-          mapPickTarget={mapPickTarget}
-          errorText={errorText}
-          isLoading={isLoading}
-          onSelectFrom={(p) => setFromPlace(p)}
-          onSelectTo={(p) => setToPlace(p)}
-          onSwapPlaces={() => {
-            setFromPlace(toPlace);
-            setToPlace(fromPlace);
-          }}
-          onChangeMode={(m) => setMode(m)}
-          onToggleAvoidRoad={() => setAvoidRoad((prev) => !prev)}
-          onChangeMapPickTarget={(target) => setMapPickTarget(target)}
-          onSelectStep={(idx) => setActiveStepIndex(idx)}
-          onApplyPreset={handleApplyPreset}
-        />
-
-        {/* 우측: 2D 지도 뷰어 + 건물 상세 드로어 */}
-        <div className="guide-map-column">
-          <Map2DViewer
-            mapInfo={mapInfo}
-            buildings={buildings}
-            landmarks={landmarks}
-            fromPlace={fromPlace}
-            toPlace={toPlace}
-            routeResult={routeResult}
-            activeStepIndex={activeStepIndex}
-            mapPickTarget={mapPickTarget}
-            selectedBuildingId={selectedBuilding?.id ?? null}
-            onMapPixelClick={handleMapPixelClick}
-            onSelectStep={(idx) => setActiveStepIndex(idx)}
-            onSelectBuilding={handleSelectBuilding}
+      {mobileMenuOpen && (
+        <div className="mobile-drawer">
+          <div
+            className="drawer-backdrop"
+            onClick={() => setMobileMenuOpen(false)}
           />
-
-          <BuildingDetailPanel
-            building={selectedBuilding}
-            onClose={() => setSelectedBuilding(null)}
-            onSetAsFrom={(id, name) =>
-              handleSetBuildingAsEndpoint(id, name, 'FROM')
-            }
-            onSetAsTo={(id, name) =>
-              handleSetBuildingAsEndpoint(id, name, 'TO')
-            }
+          <NavSidebar
+            active={activeSection}
+            recentItems={recentItems}
+            useMock={useMock}
+            hasServerError={hasServerError}
+            onSelectSection={selectSection}
+            onSelectRecent={(id) => {
+              const found = artifactHistory.find((a) => a.id === id);
+              if (found) handleOpenArtifact(found);
+            }}
+            onRetryLiveServer={handleRetryLiveServer}
+            onCloseMobile={() => setMobileMenuOpen(false)}
           />
         </div>
-      </main>
+      )}
+
+      <ChatPanel
+        messages={messages}
+        activeArtifactId={activeArtifactId}
+        isArtifactOpen={artifact !== null}
+        mobileChatTitle={artifactTitle}
+        showRouteOptions={artifact === 'map'}
+        isLoading={isLoading}
+        useMock={useMock}
+        mode={mode}
+        avoidRoad={avoidRoad}
+        suggestions={useMock ? MOCK_SUGGESTIONS : LIVE_SUGGESTIONS}
+        onSendMessage={handleSendMessage}
+        onOpenArtifact={handleOpenArtifact}
+        onChangeMode={(m) => recalculateActiveRouteIfNeeded(m, avoidRoad)}
+        onToggleAvoidRoad={() =>
+          recalculateActiveRouteIfNeeded(mode, !avoidRoad)
+        }
+        onFallbackToMock={handleFallbackToMock}
+      />
+
+      {artifact === 'map' && (
+        <aside className="artifact" aria-label="캠퍼스 지도 및 길안내 아티팩트">
+          <header className="artifact-header">
+            <div>
+              <span className="eyebrow">ARTIFACT</span>
+              <h2>{artifactTitle}</h2>
+            </div>
+
+            <div className="artifact-header-actions">
+              <div
+                className="artifact-tab-switch"
+                role="tablist"
+                aria-label="지도 아티팩트 보기 전환"
+              >
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={artifactTab === 'MAP'}
+                  className={artifactTab === 'MAP' ? 'active' : ''}
+                  onClick={() => setArtifactTab('MAP')}
+                >
+                  지도
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={artifactTab === 'STEPS'}
+                  className={artifactTab === 'STEPS' ? 'active' : ''}
+                  onClick={() => setArtifactTab('STEPS')}
+                >
+                  단계 안내{routeResult ? ` (${routeResult.steps.length})` : ''}
+                </button>
+              </div>
+              <button
+                type="button"
+                className="icon-button"
+                onClick={closeArtifact}
+                aria-label="지도 닫기"
+              >
+                <Icon name="close" />
+              </button>
+            </div>
+          </header>
+
+          {artifactTab === 'MAP' && (
+            <div className="artifact-pick-bar">
+              <span>
+                {mapPickTarget
+                  ? `지도를 클릭하면 ${
+                      mapPickTarget === 'FROM' ? '출발지' : '도착지'
+                    }가 지정됩니다.`
+                  : '지도에서 건물을 누르거나 출발·도착을 찍어보세요.'}
+              </span>
+              <div className="artifact-pick-buttons">
+                <button
+                  type="button"
+                  className={
+                    mapPickTarget === 'FROM' ? 'pick-pill active' : 'pick-pill'
+                  }
+                  onClick={() =>
+                    setMapPickTarget(mapPickTarget === 'FROM' ? null : 'FROM')
+                  }
+                >
+                  출발 찍기
+                </button>
+                <button
+                  type="button"
+                  className={
+                    mapPickTarget === 'TO' ? 'pick-pill active' : 'pick-pill'
+                  }
+                  onClick={() =>
+                    setMapPickTarget(mapPickTarget === 'TO' ? null : 'TO')
+                  }
+                >
+                  도착 찍기
+                </button>
+              </div>
+            </div>
+          )}
+
+          {(hasServerError || artifactError) && (
+            <div className="artifact-error-banner" role="alert">
+              <div className="artifact-error-copy">
+                <strong>
+                  {artifactError || '실서버(/api/v1)에 연결할 수 없습니다.'}
+                </strong>
+                {hasServerError && !useMock && (
+                  <span>
+                    서버 상태와 localhost:5173 접속을 확인하거나 Mock으로 미리 볼
+                    수 있어요.
+                  </span>
+                )}
+              </div>
+              <div className="artifact-error-actions">
+                <button
+                  type="button"
+                  className="retry-btn"
+                  onClick={() => void loadMapAndBuildings()}
+                >
+                  다시 연결
+                </button>
+                {!useMock && (
+                  <button
+                    type="button"
+                    className="fallback-mock-btn"
+                    onClick={handleFallbackToMock}
+                  >
+                    Mock 데이터로 보기
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {artifactTab === 'MAP' ? (
+            <>
+              <div className="artifact-map-wrap">
+                <Map2DViewer
+                  mapInfo={mapInfo}
+                  buildings={buildings}
+                  landmarks={landmarks}
+                  fromPlace={fromPlace}
+                  toPlace={toPlace}
+                  routeResult={routeResult}
+                  activeStepIndex={activeStepIndex}
+                  mapPickTarget={mapPickTarget}
+                  selectedBuildingId={selectedBuilding?.id ?? null}
+                  onMapPixelClick={handleMapPixelClick}
+                  onSelectStep={(idx) => setActiveStepIndex(idx)}
+                  onSelectBuilding={handleSelectBuildingOnMap}
+                />
+
+                {routeResult && activeStep && (
+                  <div className="map2d-float map2d-float-stepbar">
+                    <button
+                      type="button"
+                      className="stepbar-nav-btn"
+                      aria-label="이전 단계"
+                      disabled={activeStep.index <= 0}
+                      onClick={() =>
+                        setActiveStepIndex(Math.max(0, activeStep.index - 1))
+                      }
+                    >
+                      ◀
+                    </button>
+                    <button
+                      type="button"
+                      className="stepbar-label-btn"
+                      title="단계별 이동 안내 보기"
+                      onClick={() => setArtifactTab('STEPS')}
+                    >
+                      <span className="stepbar-floor">
+                        {formatFloorLabel(activeStep.floor)}
+                      </span>
+                      <span className="stepbar-text">
+                        {activeStep.index + 1}/{routeResult.steps.length} ·{' '}
+                        {activeStep.text}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      className="stepbar-nav-btn"
+                      aria-label="다음 단계"
+                      disabled={
+                        activeStep.index >= routeResult.steps.length - 1
+                      }
+                      onClick={() =>
+                        setActiveStepIndex(
+                          Math.min(
+                            routeResult.steps.length - 1,
+                            activeStep.index + 1
+                          )
+                        )
+                      }
+                    >
+                      ▶
+                    </button>
+                  </div>
+                )}
+
+                <BuildingDetailPanel
+                  building={selectedBuilding}
+                  onClose={() => setSelectedBuilding(null)}
+                  onSetAsFrom={(id, name) =>
+                    handleSetBuildingAsEndpoint(id, name, 'FROM')
+                  }
+                  onSetAsTo={(id, name) =>
+                    handleSetBuildingAsEndpoint(id, name, 'TO')
+                  }
+                />
+              </div>
+
+              {routeResult && fromPlace && toPlace && (
+                <div className="route-summary">
+                  <div className="route-title">
+                    <span className="route-number">01</span>
+                    <div>
+                      <strong>
+                        {fromPlace.name}에서 {toPlace.name}까지
+                      </strong>
+                      <p>
+                        {mode === 'EASIEST' ? '칼로리가 적게 드는 편한 경로' : '가장 빠른 추천 경로'}
+                        {avoidRoad ? ' · 차도 회피 적용' : ''}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="route-meta">
+                    <span>
+                      <Icon name="walk" size={17} /> {routeResult.summary.totalKcal} kcal
+                    </span>
+                    <span>
+                      <Icon name="clock" size={17} />{' '}
+                      {formatDurationText(routeResult.summary.totalSeconds)}
+                    </span>
+                    <span>
+                      {routeResult.summary.usesShortcut &&
+                      routeResult.summary.savedSeconds
+                        ? `★ ${formatDurationText(
+                            routeResult.summary.savedSeconds
+                          )} 단축`
+                        : routeResult.summary.floorChanges > 0
+                        ? `실내 이동 ${routeResult.summary.floorChanges}회`
+                        : '실외 이동'}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    className="primary-button"
+                    onClick={() => setArtifactTab('STEPS')}
+                  >
+                    단계별 안내 보기 ({routeResult.steps.length}단계){' '}
+                    <Icon name="arrow" size={17} />
+                  </button>
+                </div>
+              )}
+            </>
+          ) : (
+            <ArtifactStepsPanel
+              routeResult={routeResult}
+              activeStepIndex={activeStepIndex}
+              onSelectStep={(idx) => {
+                setActiveStepIndex(idx);
+                setArtifactTab('MAP');
+              }}
+            />
+          )}
+        </aside>
+      )}
+
+      {artifact === 'notice' && (
+        <PortalArtifactPanel
+          items={PORTAL_NOTICE_ITEMS}
+          onClose={closeArtifact}
+          onSelectPrompt={(prompt) => void handleSendMessage(prompt)}
+        />
+      )}
     </div>
   );
 };
