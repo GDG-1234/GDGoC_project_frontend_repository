@@ -622,43 +622,14 @@ export const Map2DViewer: React.FC<Map2DViewerProps> = (props) => {
           </button>
         </div>
 
-        {/* 좌하단: 다크 알약 배지 (have_a_look .map-label + 단계 앞뒤 이동) */}
+        {/* 좌하단: 다크 알약 배지 (have_a_look .map-label) */}
         {routeResult && activeStep && (
-          <div className="map-label-bar">
-            <div className="map-label">
-              <Icon name="walk" size={14} />
-              <span>
-                {formatDurationText(routeResult.summary.totalSeconds)} ·{' '}
-                {formatFloorLabel(activeStep.floor)}
-              </span>
-            </div>
-            <div className="map-step-stepper" role="group" aria-label="단계 이동">
-              <button
-                type="button"
-                aria-label="이전 단계"
-                disabled={activeStep.index <= 0}
-                onClick={() =>
-                  propsRef.current.onSelectStep(Math.max(0, activeStep.index - 1))
-                }
-              >
-                ‹
-              </button>
-              <span>
-                {activeStep.index + 1}/{routeResult.steps.length}
-              </span>
-              <button
-                type="button"
-                aria-label="다음 단계"
-                disabled={activeStep.index >= routeResult.steps.length - 1}
-                onClick={() =>
-                  propsRef.current.onSelectStep(
-                    Math.min(routeResult.steps.length - 1, activeStep.index + 1)
-                  )
-                }
-              >
-                ›
-              </button>
-            </div>
+          <div className="map-label">
+            <Icon name="walk" size={14} />
+            <span>
+              {formatDurationText(routeResult.summary.totalSeconds)} ·{' '}
+              {formatFloorLabel(activeStep.floor)}
+            </span>
           </div>
         )}
       </div>

@@ -637,7 +637,7 @@ button {
 }
 
 .artifact-header {
-  min-height: 76px;
+  min-height: 62px;
   flex: 0 0 auto;
   display: flex;
   align-items: center;
@@ -648,9 +648,9 @@ button {
 }
 
 .artifact-header h2 {
-  margin: 4px 0 0;
-  font-size: 17px;
-  letter-spacing: -0.5px;
+  margin: 0;
+  font-size: 16px;
+  letter-spacing: -0.4px;
 }
 
 .artifact-header-actions {
@@ -658,31 +658,6 @@ button {
   align-items: center;
   gap: 8px;
   flex-shrink: 0;
-}
-
-.artifact-tab-switch {
-  display: inline-flex;
-  padding: 2px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #f5f5f3;
-}
-
-.artifact-tab-switch button {
-  padding: 4px 10px;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  color: #666;
-  font-size: 11.5px;
-  font-weight: 500;
-}
-
-.artifact-tab-switch button.active {
-  background: white;
-  color: var(--ink);
-  font-weight: 600;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
 }
 
 .icon-button {
@@ -780,14 +755,52 @@ button {
 
 .route-summary {
   flex: 0 0 auto;
-  padding: 18px 24px 20px;
+  padding: 16px 20px 18px;
   border-top: 1px solid var(--line);
   background: white;
 }
 
+.route-step-carousel {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  touch-action: pan-y;
+  user-select: none;
+  outline: none;
+}
+
+.carousel-arrow-btn {
+  flex: 0 0 32px;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: white;
+  color: #333;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.carousel-arrow-btn:hover:not(:disabled) {
+  border-color: #bbb;
+  background: #f5f5f3;
+}
+
+.carousel-arrow-btn:disabled {
+  opacity: 0.28;
+  cursor: not-allowed;
+}
+
+.route-step-card-body {
+  flex: 1;
+  min-width: 0;
+}
+
 .route-title {
   display: flex;
-  gap: 14px;
+  gap: 12px;
   align-items: flex-start;
 }
 
@@ -799,7 +812,8 @@ button {
 
 .route-title strong {
   display: block;
-  font-size: 14px;
+  font-size: 13.5px;
+  line-height: 1.4;
 }
 
 .route-title p {
@@ -1026,18 +1040,12 @@ button {
   background: #f5f5f3;
 }
 
-/* have_a_look 시안 좌하단 다크 알약 배지 + 단계 앞뒤 이동 */
-.map-label-bar {
+/* have_a_look 시안 좌하단 다크 알약 배지 */
+.map-label {
   position: absolute;
   left: 14px;
   bottom: 14px;
   z-index: 1000;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.map-label {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -1048,46 +1056,6 @@ button {
   font-size: 11px;
   font-weight: 500;
   box-shadow: 0 3px 10px rgba(0, 0, 0, 0.14);
-}
-
-.map-step-stepper {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  border-radius: 20px;
-  background: rgba(255, 255, 255, 0.96);
-  border: 1px solid #ddd;
-  padding: 2px 4px;
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
-  font-size: 11px;
-  color: #444;
-}
-
-.map-step-stepper button {
-  width: 24px;
-  height: 24px;
-  display: grid;
-  place-items: center;
-  border: 0;
-  border-radius: 50%;
-  background: transparent;
-  color: #222;
-  font-size: 14px;
-  line-height: 1;
-}
-
-.map-step-stepper button:hover:not(:disabled) {
-  background: #f0f0ee;
-}
-
-.map-step-stepper button:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
-}
-
-.map-step-stepper span {
-  padding: 0 4px;
-  font-variant-numeric: tabular-nums;
 }
 
 /* Leaflet Marker Anchors & Styles */
@@ -1295,7 +1263,25 @@ button {
   background: #333;
 }
 
-/* Steps List Tab inside Artifact */
+/* Expandable Steps Bottom Sheet inside Artifact */
+.route-steps-sheet {
+  flex: 0 0 46%;
+  min-height: 220px;
+  max-height: 50%;
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--line);
+  background: white;
+  animation: steps-sheet-in 0.2s ease-out;
+}
+
+@keyframes steps-sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+
 .artifact-steps-pane {
   flex: 1;
   display: flex;
@@ -1304,43 +1290,50 @@ button {
   overflow: hidden;
 }
 
-.artifact-steps-empty {
-  padding: 28px;
-  font-size: 13px;
-  color: #777;
-  line-height: 1.6;
-}
-
-.route-summary-card {
-  padding: 14px 20px;
-  border-bottom: 1px solid var(--line);
-  background: #fbfbfa;
-  flex-shrink: 0;
-}
-
-.summary-top-row {
+.steps-sheet-header {
+  flex: 0 0 auto;
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  flex-wrap: wrap;
+  gap: 10px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--line);
 }
 
-.summary-time {
-  font-size: 18px;
-  font-weight: 700;
+.steps-sheet-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.steps-sheet-meta strong {
+  font-size: 13px;
   color: var(--ink);
-  margin-right: 6px;
 }
 
-.summary-sub,
-.summary-meta {
-  font-size: 12px;
-  color: #777;
+.steps-sheet-meta span {
+  font-size: 11px;
+  color: #888;
+}
+
+.route-steps-toggle {
+  flex: 0 0 auto;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: white;
+  color: #444;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.route-steps-toggle:hover {
+  background: #f5f5f3;
 }
 
 .shortcut-highlight-banner {
-  margin-top: 8px;
+  margin: 8px 20px 0;
   padding: 7px 10px;
   border-radius: 7px;
   background: var(--orange-soft);
@@ -1349,28 +1342,7 @@ button {
   display: flex;
   gap: 6px;
   align-items: center;
-}
-
-.steps-list-container {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  overflow: hidden;
-}
-
-.steps-list-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 20px;
-  border-bottom: 1px solid var(--line);
-  font-size: 12.5px;
-}
-
-.steps-hint {
-  font-size: 11px;
-  color: #999;
+  flex-shrink: 0;
 }
 
 .steps-list {
@@ -1378,49 +1350,60 @@ button {
   overflow-y: auto;
   list-style: none;
   margin: 0;
-  padding: 10px 16px 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  padding: 0;
 }
 
-.step-card {
+.step-row {
   width: 100%;
   text-align: left;
-  padding: 10px 12px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 11px 20px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-left: 3px solid transparent;
   background: white;
 }
 
-.step-card:hover {
-  border-color: #ccc;
-  background: #fafafa;
+.step-row:hover {
+  background: #fafaf9;
 }
 
-.step-card-active {
-  border-color: var(--orange);
+.step-row-active {
+  border-left-color: var(--orange);
   background: var(--orange-soft);
 }
 
-.step-card-top {
+.step-row-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.step-row-top {
   display: flex;
   align-items: center;
   gap: 7px;
-  margin-bottom: 4px;
+  margin-bottom: 3px;
   font-size: 11.5px;
 }
 
 .step-num {
+  flex: 0 0 18px;
   display: inline-grid;
   place-items: center;
   width: 18px;
   height: 18px;
+  margin-top: 1px;
   border-radius: 4px;
   background: #222;
   color: white;
   font-size: 10.5px;
   font-weight: 700;
+}
+
+.step-row-active .step-num {
+  background: var(--orange);
 }
 
 .step-action-badge {
@@ -1442,10 +1425,10 @@ button {
   color: #888;
 }
 
-.step-card-text {
+.step-row-text {
   font-size: 12.5px;
   color: #222;
-  line-height: 1.5;
+  line-height: 1.45;
 }
 
 /* ============================================================================
@@ -1638,9 +1621,6 @@ button {
   }
   .route-summary {
     padding: 12px 16px 14px;
-  }
-  .route-title p {
-    display: none;
   }
   .route-meta {
     margin: 10px 0;

@@ -9,6 +9,7 @@ import {
   PlaceListResponse,
   RouteRequest,
   RouteResponse,
+  StepAction,
 } from '../types/api';
 import {
   calculateMockRoute,
@@ -232,4 +233,21 @@ export function formatDurationText(seconds: number): string {
   const rem = seconds % 60;
   if (rem === 0) return `약 ${mins}분`;
   return `약 ${mins}분 ${rem}초`;
+}
+
+const STEP_ACTION_LABELS: Record<StepAction, string> = {
+  START: '출발',
+  WALK: '보행',
+  ENTER_BUILDING: '건물 진입',
+  EXIT_BUILDING: '건물 진출',
+  STAIRS_UP: '계단 ↑',
+  STAIRS_DOWN: '계단 ↓',
+  ELEVATOR: '엘리베이터',
+  UPHILL: '오르막',
+  DOWNHILL: '내리막',
+  ARRIVE: '도착',
+};
+
+export function formatStepActionLabel(action: StepAction): string {
+  return STEP_ACTION_LABELS[action];
 }

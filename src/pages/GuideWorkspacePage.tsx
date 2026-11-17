@@ -14,6 +14,7 @@ import {
   fetchNearestPlace,
   formatDurationText,
   formatFloorLabel,
+  formatStepActionLabel,
   getUseMockMode,
   searchPlaces,
   setUseMockMode,
@@ -208,7 +209,7 @@ export const GuideWorkspacePage: React.FC = () => {
   // have_a_look 시안 레이아웃 상태
   const [activeSection, setActiveSection] = useState<NavSectionKey>('chat');
   const [artifact, setArtifact] = useState<'map' | 'notice' | null>(null);
-  const [artifactTab, setArtifactTab] = useState<'MAP' | 'STEPS'>('MAP');
+  const [isStepsSheetOpen, setIsStepsSheetOpen] = useState<boolean>(false);
   const [artifactTitle, setArtifactTitle] = useState<string>('동국대 2D 캠퍼스 지도');
   const [activeArtifactId, setActiveArtifactId] = useState<string | null>(null);
   const [artifactError, setArtifactError] = useState<string | null>(null);
@@ -219,6 +220,20 @@ export const GuideWorkspacePage: React.FC = () => {
   );
 
   const requestIdRef = useRef(0);
+  const swipeStartXRef = useRef<number | null>(null);
+
+  const totalSteps = routeResult?.steps.length ?? 0;
+  const safeStepIndex =
+    activeStepIndex !== null && activeStepIndex >= 0 && activeStepIndex < totalSteps
+      ? activeStepIndex
+      : 0;
+  const activeStep =
+    routeResult && totalSteps > 0 ? routeResult.steps[safeStepIndex] : null;
+
+  const moveActiveStep = (nextIndex: number) => {
+    if (totalSteps === 0) return;
+    setActiveStepIndex(Math.max(0, Math.min(totalSteps - 1, nextIndex)));
+  };
 
   const landmarks: PlaceSummary[] = useMock
     ? MOCK_PLACES.filter(
@@ -297,7 +312,7 @@ export const GuideWorkspacePage: React.FC = () => {
     setSelectedBuilding(null);
     setActiveSection('map');
     setArtifactTitle(`${from.name} → ${to.name}`);
-    setArtifactTab('MAP');
+    setIsStepsSheetOpen(false);
     setActiveArtifactId(artifactId);
     setArtifactError(null);
     setArtifact('map');
@@ -510,7 +525,7 @@ export const GuideWorkspacePage: React.FC = () => {
         setSelectedBuilding(detail);
         setActiveSection('saved');
         setArtifactTitle(`${detail.name} 정보`);
-        setArtifactTab('MAP');
+        setIsStepsSheetOpen(false);
         setActiveArtifactId(artifactId);
         setArtifactError(null);
         setArtifact('map');
@@ -535,7 +550,7 @@ export const GuideWorkspacePage: React.FC = () => {
         setSelectedBuilding(detail);
         setActiveSection('saved');
         setArtifactTitle(`${detail.name} 정보`);
-        setArtifactTab('MAP');
+        setIsStepsSheetOpen(false);
         setActiveArtifactId(artifactId);
         setArtifactError(null);
         setArtifact('map');
@@ -597,7 +612,7 @@ export const GuideWorkspacePage: React.FC = () => {
       return;
     }
 
-    setArtifactTab('MAP');
+    setIsStepsSheetOpen(false);
     if (
       payload.kind === 'ROUTE' &&
       payload.routeResult &&
@@ -640,7 +655,7 @@ export const GuideWorkspacePage: React.FC = () => {
       return;
     }
 
-    setArtifactTab('MAP');
+    setIsStepsSheetOpen(false);
     if (section === 'saved') {
       if (!selectedBuilding) setArtifactTitle('건물 · 편의시설 지도');
     } else if (!routeResult) {
@@ -856,35 +871,10 @@ export const GuideWorkspacePage: React.FC = () => {
         <aside className="artifact" aria-label="캠퍼스 지도 및 길안내 아티팩트">
           <header className="artifact-header">
             <div>
-              <span className="eyebrow">ARTIFACT</span>
               <h2>{artifactTitle}</h2>
             </div>
 
             <div className="artifact-header-actions">
-              <div
-                className="artifact-tab-switch"
-                role="tablist"
-                aria-label="지도 아티팩트 보기 전환"
-              >
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={artifactTab === 'MAP'}
-                  className={artifactTab === 'MAP' ? 'active' : ''}
-                  onClick={() => setArtifactTab('MAP')}
-                >
-                  지도
-                </button>
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={artifactTab === 'STEPS'}
-                  className={artifactTab === 'STEPS' ? 'active' : ''}
-                  onClick={() => setArtifactTab('STEPS')}
-                >
-                  단계 안내{routeResult ? ` (${routeResult.steps.length})` : ''}
-                </button>
-              </div>
               <button
                 type="button"
                 className="icon-button"
@@ -896,41 +886,39 @@ export const GuideWorkspacePage: React.FC = () => {
             </div>
           </header>
 
-          {artifactTab === 'MAP' && (
-            <div className="artifact-pick-bar">
-              <span>
-                {mapPickTarget
-                  ? `지도를 클릭하면 ${
-                      mapPickTarget === 'FROM' ? '출발지' : '도착지'
-                    }가 지정됩니다.`
-                  : '지도에서 건물을 누르거나 출발·도착을 찍어보세요.'}
-              </span>
-              <div className="artifact-pick-buttons">
-                <button
-                  type="button"
-                  className={
-                    mapPickTarget === 'FROM' ? 'pick-pill active' : 'pick-pill'
-                  }
-                  onClick={() =>
-                    setMapPickTarget(mapPickTarget === 'FROM' ? null : 'FROM')
-                  }
-                >
-                  출발 찍기
-                </button>
-                <button
-                  type="button"
-                  className={
-                    mapPickTarget === 'TO' ? 'pick-pill active' : 'pick-pill'
-                  }
-                  onClick={() =>
-                    setMapPickTarget(mapPickTarget === 'TO' ? null : 'TO')
-                  }
-                >
-                  도착 찍기
-                </button>
-              </div>
+          <div className="artifact-pick-bar">
+            <span>
+              {mapPickTarget
+                ? `지도를 클릭하면 ${
+                    mapPickTarget === 'FROM' ? '출발지' : '도착지'
+                  }가 지정됩니다.`
+                : '지도에서 건물을 누르거나 출발·도착을 찍어보세요.'}
+            </span>
+            <div className="artifact-pick-buttons">
+              <button
+                type="button"
+                className={
+                  mapPickTarget === 'FROM' ? 'pick-pill active' : 'pick-pill'
+                }
+                onClick={() =>
+                  setMapPickTarget(mapPickTarget === 'FROM' ? null : 'FROM')
+                }
+              >
+                출발 찍기
+              </button>
+              <button
+                type="button"
+                className={
+                  mapPickTarget === 'TO' ? 'pick-pill active' : 'pick-pill'
+                }
+                onClick={() =>
+                  setMapPickTarget(mapPickTarget === 'TO' ? null : 'TO')
+                }
+              >
+                도착 찍기
+              </button>
             </div>
-          )}
+          </div>
 
           {(hasServerError || artifactError) && (
             <div className="artifact-error-banner" role="alert">
@@ -966,98 +954,151 @@ export const GuideWorkspacePage: React.FC = () => {
             </div>
           )}
 
-          {artifactTab === 'MAP' ? (
-            <>
-              <div className="artifact-map-wrap">
-                <Map2DViewer
-                  mapInfo={mapInfo}
-                  buildings={buildings}
-                  landmarks={landmarks}
-                  fromPlace={fromPlace}
-                  toPlace={toPlace}
+          <div className="artifact-map-wrap">
+            <Map2DViewer
+              mapInfo={mapInfo}
+              buildings={buildings}
+              landmarks={landmarks}
+              fromPlace={fromPlace}
+              toPlace={toPlace}
+              routeResult={routeResult}
+              activeStepIndex={activeStepIndex}
+              mapPickTarget={mapPickTarget}
+              selectedBuildingId={selectedBuilding?.id ?? null}
+              onMapPixelClick={handleMapPixelClick}
+              onSelectStep={(idx) => setActiveStepIndex(idx)}
+              onSelectBuilding={handleSelectBuildingOnMap}
+            />
+          </div>
+
+          {selectedBuilding ? (
+            <BuildingDetailPanel
+              building={selectedBuilding}
+              onClose={() => setSelectedBuilding(null)}
+              onSetAsFrom={(id, name) =>
+                handleSetBuildingAsEndpoint(id, name, 'FROM')
+              }
+              onSetAsTo={(id, name) =>
+                handleSetBuildingAsEndpoint(id, name, 'TO')
+              }
+            />
+          ) : routeResult && fromPlace && toPlace ? (
+            isStepsSheetOpen ? (
+              <div className="route-steps-sheet">
+                <ArtifactStepsPanel
                   routeResult={routeResult}
-                  activeStepIndex={activeStepIndex}
-                  mapPickTarget={mapPickTarget}
-                  selectedBuildingId={selectedBuilding?.id ?? null}
-                  onMapPixelClick={handleMapPixelClick}
+                  activeStepIndex={safeStepIndex}
                   onSelectStep={(idx) => setActiveStepIndex(idx)}
-                  onSelectBuilding={handleSelectBuildingOnMap}
+                  onCloseSheet={() => setIsStepsSheetOpen(false)}
                 />
               </div>
+            ) : (
+              <div className="route-summary">
+                <div
+                  className="route-step-carousel"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'ArrowLeft') moveActiveStep(safeStepIndex - 1);
+                    if (e.key === 'ArrowRight') moveActiveStep(safeStepIndex + 1);
+                  }}
+                  onPointerDown={(e) => {
+                    swipeStartXRef.current = e.clientX;
+                  }}
+                  onPointerUp={(e) => {
+                    if (swipeStartXRef.current === null) return;
+                    const delta = e.clientX - swipeStartXRef.current;
+                    swipeStartXRef.current = null;
+                    if (Math.abs(delta) < 36) return;
+                    moveActiveStep(delta < 0 ? safeStepIndex + 1 : safeStepIndex - 1);
+                  }}
+                  onPointerCancel={() => {
+                    swipeStartXRef.current = null;
+                  }}
+                >
+                  <button
+                    type="button"
+                    className="carousel-arrow-btn"
+                    disabled={safeStepIndex <= 0}
+                    onClick={() => moveActiveStep(safeStepIndex - 1)}
+                    aria-label="이전 이동 단계"
+                  >
+                    ‹
+                  </button>
 
-              {selectedBuilding ? (
-                <BuildingDetailPanel
-                  building={selectedBuilding}
-                  onClose={() => setSelectedBuilding(null)}
-                  onSetAsFrom={(id, name) =>
-                    handleSetBuildingAsEndpoint(id, name, 'FROM')
-                  }
-                  onSetAsTo={(id, name) =>
-                    handleSetBuildingAsEndpoint(id, name, 'TO')
-                  }
-                />
-              ) : routeResult && fromPlace && toPlace ? (
-                <div className="route-summary">
-                  <div className="route-title">
-                    <span className="route-number">01</span>
+                  <div className="route-title route-step-card-body">
+                    <span className="route-number">
+                      {String(safeStepIndex + 1).padStart(2, '0')}
+                    </span>
                     <div>
                       <strong>
-                        {fromPlace.name}에서 {toPlace.name}까지
+                        {activeStep
+                          ? activeStep.text
+                          : `${fromPlace.name}에서 ${toPlace.name}까지`}
                       </strong>
                       <p>
-                        {mode === 'EASIEST'
+                        {activeStep
+                          ? `${formatStepActionLabel(activeStep.action)} · ${formatFloorLabel(
+                              activeStep.floor
+                            )}${
+                              activeStep.seconds
+                                ? ` · ${formatDurationText(activeStep.seconds)}`
+                                : ''
+                            } · ${safeStepIndex + 1}/${totalSteps}`
+                          : mode === 'EASIEST'
                           ? '칼로리가 적게 드는 편한 경로'
                           : '가장 빠른 추천 경로'}
-                        {avoidRoad ? ' · 차도 회피 적용' : ''}
                       </p>
                     </div>
                   </div>
-                  <div className="route-meta">
-                    <span>
-                      <Icon name="walk" size={17} /> {routeResult.summary.totalKcal} kcal
-                    </span>
-                    <span>
-                      <Icon name="clock" size={17} />{' '}
-                      {formatDurationText(routeResult.summary.totalSeconds)}
-                    </span>
-                    <span>
-                      {routeResult.summary.usesShortcut &&
-                      routeResult.summary.savedSeconds
-                        ? `★ ${formatDurationText(
-                            routeResult.summary.savedSeconds
-                          )} 단축`
-                        : routeResult.summary.floorChanges > 0
-                        ? `실내 이동 ${routeResult.summary.floorChanges}회`
-                        : '실외 이동'}
-                    </span>
-                  </div>
+
                   <button
                     type="button"
-                    className="primary-button"
-                    onClick={() => setArtifactTab('STEPS')}
+                    className="carousel-arrow-btn"
+                    disabled={safeStepIndex >= totalSteps - 1}
+                    onClick={() => moveActiveStep(safeStepIndex + 1)}
+                    aria-label="다음 이동 단계"
                   >
-                    단계별 안내 보기 ({routeResult.steps.length}단계){' '}
-                    <Icon name="arrow" size={17} />
+                    ›
                   </button>
                 </div>
-              ) : (
-                <div className="route-summary route-summary-idle">
-                  <p>
-                    지도 위 건물을 선택해 상세 정보를 확인하거나, 대화창에 출발·도착지를
-                    입력해 경로를 띄워보세요.
-                  </p>
+
+                <div className="route-meta">
+                  <span>
+                    <Icon name="walk" size={17} /> {routeResult.summary.totalKcal} kcal
+                  </span>
+                  <span>
+                    <Icon name="clock" size={17} />{' '}
+                    {formatDurationText(routeResult.summary.totalSeconds)}
+                  </span>
+                  <span>
+                    {routeResult.summary.usesShortcut &&
+                    routeResult.summary.savedSeconds
+                      ? `★ ${formatDurationText(
+                          routeResult.summary.savedSeconds
+                        )} 단축`
+                      : routeResult.summary.floorChanges > 0
+                      ? `실내 이동 ${routeResult.summary.floorChanges}회`
+                      : '실외 이동'}
+                  </span>
                 </div>
-              )}
-            </>
+
+                <button
+                  type="button"
+                  className="primary-button"
+                  onClick={() => setIsStepsSheetOpen(true)}
+                  aria-expanded="false"
+                >
+                  단계별 안내 보기 ({totalSteps}단계) ▴
+                </button>
+              </div>
+            )
           ) : (
-            <ArtifactStepsPanel
-              routeResult={routeResult}
-              activeStepIndex={activeStepIndex}
-              onSelectStep={(idx) => {
-                setActiveStepIndex(idx);
-                setArtifactTab('MAP');
-              }}
-            />
+            <div className="route-summary route-summary-idle">
+              <p>
+                지도 위 건물을 선택해 상세 정보를 확인하거나, 대화창에 출발·도착지를
+                입력해 경로를 띄워보세요.
+              </p>
+            </div>
           )}
         </aside>
       )}

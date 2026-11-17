@@ -23,7 +23,6 @@ export const PortalArtifactPanel: React.FC<PortalArtifactPanelProps> = ({
     <aside className="artifact notice-artifact" aria-label="공지사항 및 학사 안내">
       <header className="artifact-header">
         <div>
-          <span className="eyebrow">NOTICE</span>
           <h2>학사 공지 · 캠퍼스 안내</h2>
         </div>
         <button
