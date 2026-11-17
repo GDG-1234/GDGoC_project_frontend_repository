@@ -30,6 +30,7 @@ import {
 } from '../shared/types/api';
 import { MapPickTarget } from '../shared/types/ui';
 import { Icon } from '../shared/ui/Icon';
+import { ArtifactRouteSearchBar } from '../widgets/artifact-search/ArtifactRouteSearchBar';
 import { ArtifactStepsPanel } from '../widgets/artifact-steps/ArtifactStepsPanel';
 import { BuildingDetailPanel } from '../widgets/building-detail/BuildingDetailPanel';
 import {
@@ -210,6 +211,7 @@ export const GuideWorkspacePage: React.FC = () => {
   const [activeSection, setActiveSection] = useState<NavSectionKey>('chat');
   const [artifact, setArtifact] = useState<'map' | 'notice' | null>(null);
   const [isStepsSheetOpen, setIsStepsSheetOpen] = useState<boolean>(false);
+  const [isSearchOpen, setIsSearchOpen] = useState<boolean>(false);
   const [artifactTitle, setArtifactTitle] = useState<string>('동국대 2D 캠퍼스 지도');
   const [activeArtifactId, setActiveArtifactId] = useState<string | null>(null);
   const [artifactError, setArtifactError] = useState<string | null>(null);
@@ -691,26 +693,45 @@ export const GuideWorkspacePage: React.FC = () => {
     }
   };
 
+  const applyEndpointSelection = async (
+    place: PlaceSummary,
+    target: 'FROM' | 'TO'
+  ) => {
+    const nextFrom = target === 'FROM' ? place : fromPlace;
+    const nextTo = target === 'TO' ? place : toPlace;
+    if (target === 'FROM') setFromPlace(place);
+    else setToPlace(place);
+
+    if (nextFrom && nextTo) {
+      await runRouteAndAnnounce(nextFrom, nextTo, mode, avoidRoad);
+    } else {
+      appendAssistantMessage(
+        `'${place.name}'을(를) ${
+          target === 'FROM' ? '출발지' : '도착지'
+        }로 지정했어요. ${
+          target === 'FROM' ? '도착지' : '출발지'
+        }도 알려주시면 경로를 그려드릴게요!`
+      );
+    }
+  };
+
+  const handleSwapPlaces = async () => {
+    const nextFrom = toPlace;
+    const nextTo = fromPlace;
+    setFromPlace(nextFrom);
+    setToPlace(nextTo);
+    if (nextFrom && nextTo) {
+      await runRouteAndAnnounce(nextFrom, nextTo, mode, avoidRoad);
+    }
+  };
+
   const handleMapPixelClick = async (x: number, y: number) => {
     const target = mapPickTarget;
     if (!target) return;
     try {
       const nearest = await fetchNearestPlace({ x, y, floor: 0 });
       setMapPickTarget(null);
-      const nextFrom = target === 'FROM' ? nearest.place : fromPlace;
-      const nextTo = target === 'TO' ? nearest.place : toPlace;
-      if (target === 'FROM') setFromPlace(nearest.place);
-      else setToPlace(nearest.place);
-
-      if (nextFrom && nextTo) {
-        await runRouteAndAnnounce(nextFrom, nextTo, mode, avoidRoad);
-      } else {
-        appendAssistantMessage(
-          `지도에서 '${nearest.place.name}'을(를) ${
-            target === 'FROM' ? '출발지' : '도착지'
-          }로 선택했어요.`
-        );
-      }
+      await applyEndpointSelection(nearest.place, target);
     } catch (err) {
       if (err instanceof ApiClientError) setArtifactError(err.message);
     }
@@ -750,22 +771,7 @@ export const GuideWorkspacePage: React.FC = () => {
         return;
       }
 
-      const nextFrom = target === 'FROM' ? place : fromPlace;
-      const nextTo = target === 'TO' ? place : toPlace;
-      if (target === 'FROM') setFromPlace(place);
-      else setToPlace(place);
-
-      if (nextFrom && nextTo) {
-        await runRouteAndAnnounce(nextFrom, nextTo, mode, avoidRoad);
-      } else {
-        appendAssistantMessage(
-          `'${place.name}'을(를) ${
-            target === 'FROM' ? '출발지' : '도착지'
-          }로 지정했어요. ${
-            target === 'FROM' ? '도착지' : '출발지'
-          }도 알려주시면 경로를 그려드릴게요!`
-        );
-      }
+      await applyEndpointSelection(place, target);
     } catch (err) {
       if (err instanceof ApiClientError) setArtifactError(err.message);
     }
@@ -774,6 +780,7 @@ export const GuideWorkspacePage: React.FC = () => {
   const closeArtifact = () => {
     setArtifact(null);
     setMapPickTarget(null);
+    setIsSearchOpen(false);
     setActiveSection('chat');
   };
 
@@ -877,6 +884,21 @@ export const GuideWorkspacePage: React.FC = () => {
             <div className="artifact-header-actions">
               <button
                 type="button"
+                className={
+                  isSearchOpen
+                    ? 'header-search-toggle active'
+                    : 'header-search-toggle'
+                }
+                onClick={() => setIsSearchOpen((prev) => !prev)}
+                aria-expanded={isSearchOpen}
+                aria-label="출발·도착 검색"
+                title="출발·도착 직접 검색"
+              >
+                <Icon name="search" size={15} />
+                <span>검색</span>
+              </button>
+              <button
+                type="button"
                 className="icon-button"
                 onClick={closeArtifact}
                 aria-label="지도 닫기"
@@ -885,6 +907,16 @@ export const GuideWorkspacePage: React.FC = () => {
               </button>
             </div>
           </header>
+
+          {isSearchOpen && (
+            <ArtifactRouteSearchBar
+              fromPlace={fromPlace}
+              toPlace={toPlace}
+              onSelectFrom={(place) => void applyEndpointSelection(place, 'FROM')}
+              onSelectTo={(place) => void applyEndpointSelection(place, 'TO')}
+              onSwapPlaces={() => void handleSwapPlaces()}
+            />
+          )}
 
           <div className="artifact-pick-bar">
             <span>

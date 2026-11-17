@@ -14,7 +14,9 @@ export type IconName =
   | 'pin'
   | 'walk'
   | 'clock'
-  | 'chevron';
+  | 'chevron'
+  | 'search'
+  | 'swap';
 
 interface IconProps {
   name: IconName;
@@ -76,6 +78,18 @@ const ICON_PATHS: Record<IconName, ReactNode> = {
     </>
   ),
   chevron: <path d="m8 10 4 4 4-4" />,
+  search: (
+    <>
+      <circle cx="11" cy="11" r="7" />
+      <path d="m20 20-3.5-3.5" />
+    </>
+  ),
+  swap: (
+    <>
+      <path d="M7 16V4m0 0-3 3m3-3 3 3" />
+      <path d="M17 8v12m0 0 3-3m-3 3-3-3" />
+    </>
+  ),
 };
 
 export const Icon: React.FC<IconProps> = ({ name, size = 20 }) => {
