@@ -20,8 +20,7 @@ import {
   MOCK_MAP_INFO,
 } from '../data/mockApiV1Data';
 
-const DEFAULT_API_BASE =
-  import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api/v1';
+const DEFAULT_API_BASE = import.meta.env.VITE_API_BASE_URL || '/api/v1';
 
 // 기본값은 실서버 API 연동이며, VITE_USE_MOCK=true 또는 오류 시 fallback으로만 Mock 전환한다.
 const DEFAULT_USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true';
