@@ -1,0 +1,114 @@
+name: Firebase Hosting Deploy
+
+# GitHub Secrets에 FIREBASE_SERVICE_ACCOUNT_GDG_1234를 등록하면
+# PR마다 Preview 채널을 생성하고, main push 시 live 채널로 자동 배포한다.
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: hosting-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+
+jobs:
+  preview:
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check Firebase service account secret
+        id: check_secret
+        env:
+          FIREBASE_SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_GDG_1234 }}
+        run: |
+          if [ -n "$FIREBASE_SA" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::FIREBASE_SERVICE_ACCOUNT_GDG_1234 시크릿이 미등록 상태라 Preview 배포를 건너뜁니다."
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.check_secret.outputs.configured == 'true'
+
+      - uses: actions/setup-node@v4
+        if: steps.check_secret.outputs.configured == 'true'
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        if: steps.check_secret.outputs.configured == 'true'
+        run: npm ci
+
+      - name: Build production bundle
+        if: steps.check_secret.outputs.configured == 'true'
+        env:
+          VITE_API_BASE_URL: /api/v1
+          VITE_USE_MOCK: 'false'
+        run: npm run build
+
+      - name: Deploy PR Preview to Firebase Hosting
+        if: steps.check_secret.outputs.configured == 'true'
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_GDG_1234 }}
+          projectId: gdg-1234
+
+  deploy_live:
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check Firebase service account secret
+        id: check_secret
+        env:
+          FIREBASE_SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_GDG_1234 }}
+        run: |
+          if [ -n "$FIREBASE_SA" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::FIREBASE_SERVICE_ACCOUNT_GDG_1234 시크릿이 미등록 상태라 Live 배포를 건너뜁니다."
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.check_secret.outputs.configured == 'true'
+
+      - uses: actions/setup-node@v4
+        if: steps.check_secret.outputs.configured == 'true'
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        if: steps.check_secret.outputs.configured == 'true'
+        run: npm ci
+
+      - name: Build production bundle
+        if: steps.check_secret.outputs.configured == 'true'
+        env:
+          VITE_API_BASE_URL: /api/v1
+          VITE_USE_MOCK: 'false'
+        run: npm run build
+
+      - name: Deploy Live to Firebase Hosting
+        if: steps.check_secret.outputs.configured == 'true'
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_GDG_1234 }}
+          channelId: live
+          projectId: gdg-1234

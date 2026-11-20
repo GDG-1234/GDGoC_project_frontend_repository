@@ -44,3 +44,6 @@ desktop.ini
 
 # AI Tool local configs
 .claude/settings.local.json
+
+# Firebase local cache
+.firebase/
