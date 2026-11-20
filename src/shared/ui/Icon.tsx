@@ -16,7 +16,10 @@ export type IconName =
   | 'clock'
   | 'chevron'
   | 'search'
-  | 'swap';
+  | 'swap'
+  | 'trash'
+  | 'logout'
+  | 'external';
 
 interface IconProps {
   name: IconName;
@@ -89,6 +92,28 @@ const ICON_PATHS: Record<IconName, ReactNode> = {
     <>
       <path d="M7 16V4m0 0-3 3m3-3 3 3" />
       <path d="M17 8v12m0 0 3-3m-3 3-3-3" />
+    </>
+  ),
+  trash: (
+    <>
+      <path d="M3 6h18" />
+      <path d="M8 6V4h8v2" />
+      <path d="M19 6l-1 14H6L5 6" />
+      <path d="M10 11v6M14 11v6" />
+    </>
+  ),
+  logout: (
+    <>
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+      <path d="m16 17 5-5-5-5" />
+      <path d="M21 12H9" />
+    </>
+  ),
+  external: (
+    <>
+      <path d="M14 3h7v7" />
+      <path d="M10 14 21 3" />
+      <path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5" />
     </>
   ),
 };

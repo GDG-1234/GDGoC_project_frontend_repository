@@ -1,4 +1,5 @@
 import React from 'react';
+import { ConversationSummary, UserResponse } from '../../shared/types/portal';
 import { Icon, type IconName } from '../../shared/ui/Icon';
 
 export type NavSectionKey = 'chat' | 'map' | 'saved' | 'notice';
@@ -11,10 +12,18 @@ export interface SidebarHistoryItem {
 interface NavSidebarProps {
   active: NavSectionKey;
   recentItems: SidebarHistoryItem[];
+  conversations: ConversationSummary[];
+  activeConversationId: number | null;
+  user: UserResponse | null;
+  authLoading: boolean;
   useMock: boolean;
   hasServerError: boolean;
   onSelectSection: (section: NavSectionKey) => void;
   onSelectRecent: (id: string) => void;
+  onSelectConversation: (id: number) => void;
+  onDeleteConversation: (id: number) => void;
+  onSignIn: () => void;
+  onSignOut: () => void;
   onRetryLiveServer: () => void;
   onCloseMobile?: () => void;
 }
@@ -33,18 +42,40 @@ const NAV_ITEMS: Array<{
 export const NavSidebar: React.FC<NavSidebarProps> = ({
   active,
   recentItems,
+  conversations,
+  activeConversationId,
+  user,
+  authLoading,
   useMock,
   hasServerError,
   onSelectSection,
   onSelectRecent,
+  onSelectConversation,
+  onDeleteConversation,
+  onSignIn,
+  onSignOut,
   onRetryLiveServer,
   onCloseMobile,
 }) => {
-  const statusText = useMock
+  const statusText = authLoading
+    ? '로그인 확인 중...'
+    : user
+    ? user.isAdmin
+      ? `${user.email} · 관리자`
+      : user.email
+    : useMock
     ? 'Mock 임시 모드'
     : hasServerError
     ? '서버 연결 필요'
-    : '실서버 연동 (/api/v1)';
+    : 'Google 로그인으로 시작';
+
+  const displayName = user
+    ? user.name || user.email.split('@')[0]
+    : 'Google 로그인';
+
+  const avatarInitial = user
+    ? (user.name || user.email).slice(0, 1).toUpperCase()
+    : 'G';
 
   return (
     <aside className="sidebar" aria-label="아코봇 주 메뉴">
@@ -108,8 +139,47 @@ export const NavSidebar: React.FC<NavSidebarProps> = ({
       <div className="sidebar-bottom">
         <div className="history">
           <span className="eyebrow">최근 대화</span>
-          {recentItems.length === 0 ? (
-            <span className="history-empty">아직 열린 안내가 없어요</span>
+          {user ? (
+            conversations.length === 0 ? (
+              <span className="history-empty">아직 저장된 대화가 없어요</span>
+            ) : (
+              conversations.map((conv) => (
+                <div
+                  key={conv.id}
+                  className={
+                    activeConversationId === conv.id
+                      ? 'history-row active'
+                      : 'history-row'
+                  }
+                >
+                  <button
+                    type="button"
+                    className="history-select-btn"
+                    onClick={() => {
+                      onSelectConversation(conv.id);
+                      onCloseMobile?.();
+                    }}
+                    title={conv.title}
+                  >
+                    {conv.title}
+                  </button>
+                  <button
+                    type="button"
+                    className="history-delete-btn"
+                    aria-label={`${conv.title} 대화 삭제`}
+                    title="대화 삭제"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDeleteConversation(conv.id);
+                    }}
+                  >
+                    <Icon name="trash" size={14} />
+                  </button>
+                </div>
+              ))
+            )
+          ) : recentItems.length === 0 ? (
+            <span className="history-empty">로그인하면 대화가 저장돼요</span>
           ) : (
             recentItems.map((item) => (
               <button
@@ -130,22 +200,49 @@ export const NavSidebar: React.FC<NavSidebarProps> = ({
         <button
           type="button"
           className="profile"
-          aria-label={useMock ? '실서버 연결 재시도' : statusText}
-          title={useMock ? '클릭하여 실서버 연결 재시도' : statusText}
+          disabled={authLoading}
+          aria-label={
+            user
+              ? '로그아웃'
+              : useMock || hasServerError
+              ? '실서버 연결 또는 로그인'
+              : 'Google 계정으로 로그인'
+          }
+          title={
+            user
+              ? '클릭하여 로그아웃'
+              : useMock || hasServerError
+              ? '클릭하여 Google 로그인 / 실서버 재연결'
+              : '클릭하여 Google 계정으로 로그인'
+          }
           onClick={() => {
-            if (useMock || hasServerError) {
-              onRetryLiveServer();
+            if (user) {
+              onSignOut();
+            } else {
+              if (useMock || hasServerError) {
+                onRetryLiveServer();
+              }
+              onSignIn();
             }
           }}
         >
-          <span className="avatar">게</span>
+          {user?.pictureUrl ? (
+            <img
+              src={user.pictureUrl}
+              alt=""
+              className="avatar avatar-img"
+              referrerPolicy="no-referrer"
+            />
+          ) : (
+            <span className="avatar">{avatarInitial}</span>
+          )}
           <span>
-            <strong>게스트</strong>
-            <small className={hasServerError && !useMock ? 'status-err' : ''}>
+            <strong>{displayName}</strong>
+            <small className={hasServerError && !useMock && !user ? 'status-err' : ''}>
               {statusText}
             </small>
           </span>
-          <Icon name="settings" size={18} />
+          <Icon name={user ? 'logout' : 'arrow'} size={18} />
         </button>
       </div>
     </aside>
