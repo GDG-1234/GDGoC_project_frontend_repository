@@ -1,7 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { formatFloorLabel } from '../../shared/api/apiClient';
+import {
+  formatDurationText,
+  formatFloorLabel,
+} from '../../shared/api/apiClient';
+import { Icon } from '../../shared/ui/Icon';
 import {
   BuildingSummary,
   MapInfoResponse,
@@ -133,9 +137,6 @@ export const Map2DViewer: React.FC<Map2DViewerProps> = (props) => {
   const stepRouteRef = useRef<RouteResponse | null>(null);
 
   const [zoom, setZoom] = useState<number>(DEFAULT_ZOOM);
-  const [hoverPixel, setHoverPixel] = useState<{ x: number; y: number } | null>(
-    null
-  );
   const [showPlaceLabels, setShowPlaceLabels] = useState<boolean>(true);
 
   const isZoomedOut = zoom < LABEL_HIDE_ZOOM;
@@ -191,10 +192,6 @@ export const Map2DViewer: React.FC<Map2DViewerProps> = (props) => {
       const pt = clampPixel(e.latlng);
       propsRef.current.onMapPixelClick(pt.x, pt.y);
     });
-    map.on('mousemove', (e: L.LeafletMouseEvent) => {
-      setHoverPixel(clampPixel(e.latlng));
-    });
-    map.on('mouseout', () => setHoverPixel(null));
     map.on('zoom', () => setZoom(map.getZoom()));
 
     // 컨테이너 크기 변화(창 크기 조절 등)에 맞춰 지도 크기를 갱신한다.
@@ -313,10 +310,10 @@ export const Map2DViewer: React.FC<Map2DViewerProps> = (props) => {
         !isSelectedSeg;
       const opacity = dim ? 0.28 : 1;
       const color = seg.isShortcut
-        ? '#ea580c' // 지름길 구간 강조 색상
+        ? '#ef6c26' // 지름길 구간 강조 색상 (시안 오렌지)
         : seg.indoor
         ? '#2563eb' // 실내 구간 색상
-        : '#18181b'; // 실외 구간 색상
+        : '#222222'; // 실외 구간 색상
 
       if (isSelectedSeg) {
         L.polyline(latlngs, {
@@ -551,6 +548,14 @@ export const Map2DViewer: React.FC<Map2DViewerProps> = (props) => {
     if (step) map.panTo(toLatLng(step.position));
   }, [activeStepIndex, routeResult]);
 
+  // 8. 건물 선택 시(대화 또는 마커 클릭) 해당 건물 위치로 이동
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || selectedBuildingId === null) return;
+    const building = buildings.find((b) => b.id === selectedBuildingId);
+    if (building) map.panTo(toLatLng(building.position));
+  }, [selectedBuildingId, buildings]);
+
   return (
     <section className="map2d-section" aria-label="2D 캠퍼스 픽셀 좌표 지도 뷰어">
       <div
@@ -565,7 +570,7 @@ export const Map2DViewer: React.FC<Map2DViewerProps> = (props) => {
           aria-label="캠퍼스 지도 (드래그로 이동, 휠로 확대·축소)"
         />
 
-        {/* 좌상단 플로팅: 범례 + 라벨 토글 */}
+        {/* 좌상단: 간결한 범례 + 라벨 토글 */}
         <div className="map2d-float map2d-float-legend">
           <span className="legend-item">
             <span className="legend-line legend-outdoor" /> 실외
@@ -582,15 +587,14 @@ export const Map2DViewer: React.FC<Map2DViewerProps> = (props) => {
               checked={showPlaceLabels}
               onChange={() => setShowPlaceLabels((prev) => !prev)}
             />
-            <span>건물 라벨</span>
+            <span>라벨</span>
           </label>
         </div>
 
-        {/* 우상단 플로팅: 확대 / 축소 / 초기 위치 */}
-        <div className="map2d-float map2d-float-zoom" role="group" aria-label="지도 조작">
+        {/* 우상단: 확대 / 축소 / 초기 위치 */}
+        <div className="map-controls" role="group" aria-label="지도 조작">
           <button
             type="button"
-            className="map2d-zoom-btn"
             aria-label="확대"
             title="확대"
             onClick={() => mapRef.current?.zoomIn()}
@@ -599,7 +603,6 @@ export const Map2DViewer: React.FC<Map2DViewerProps> = (props) => {
           </button>
           <button
             type="button"
-            className="map2d-zoom-btn"
             aria-label="축소"
             title="축소"
             onClick={() => mapRef.current?.zoomOut()}
@@ -608,39 +611,27 @@ export const Map2DViewer: React.FC<Map2DViewerProps> = (props) => {
           </button>
           <button
             type="button"
-            className="map2d-zoom-btn"
+            className="map-reset-btn"
             aria-label="초기 위치로 이동"
             title="초기 위치"
             onClick={() =>
               mapRef.current?.setView(toLatLng(mapInfo.defaultCenter), DEFAULT_ZOOM)
             }
           >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
-              <path d="M3 3v5h5" />
-            </svg>
+            ↺
           </button>
         </div>
 
-        {/* 우하단: 배율 / 픽셀 좌표 (디버깅용) */}
-        <div className="map2d-float map2d-float-status" aria-live="off">
-          <span>{Math.round(Math.pow(2, zoom) * 100)}%</span>
-          {hoverPixel && (
+        {/* 좌하단: 다크 알약 배지 */}
+        {routeResult && activeStep && (
+          <div className="map-label">
+            <Icon name="walk" size={14} />
             <span>
-              ({hoverPixel.x}, {hoverPixel.y})
+              {formatDurationText(routeResult.summary.totalSeconds)} ·{' '}
+              {formatFloorLabel(activeStep.floor)}
             </span>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </section>
   );

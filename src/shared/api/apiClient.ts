@@ -9,6 +9,7 @@ import {
   PlaceListResponse,
   RouteRequest,
   RouteResponse,
+  StepAction,
 } from '../types/api';
 import {
   calculateMockRoute,
@@ -22,10 +23,8 @@ import {
 const DEFAULT_API_BASE =
   import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api/v1';
 
-const DEFAULT_USE_MOCK =
-  import.meta.env.VITE_USE_MOCK === undefined
-    ? true
-    : import.meta.env.VITE_USE_MOCK !== 'false';
+// 기본값은 실서버 API 연동이며, VITE_USE_MOCK=true 또는 오류 시 fallback으로만 Mock 전환한다.
+const DEFAULT_USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true';
 
 let runtimeUseMock: boolean = DEFAULT_USE_MOCK;
 
@@ -234,4 +233,21 @@ export function formatDurationText(seconds: number): string {
   const rem = seconds % 60;
   if (rem === 0) return `약 ${mins}분`;
   return `약 ${mins}분 ${rem}초`;
+}
+
+const STEP_ACTION_LABELS: Record<StepAction, string> = {
+  START: '출발',
+  WALK: '보행',
+  ENTER_BUILDING: '건물 진입',
+  EXIT_BUILDING: '건물 진출',
+  STAIRS_UP: '계단 ↑',
+  STAIRS_DOWN: '계단 ↓',
+  ELEVATOR: '엘리베이터',
+  UPHILL: '오르막',
+  DOWNHILL: '내리막',
+  ARRIVE: '도착',
+};
+
+export function formatStepActionLabel(action: StepAction): string {
+  return STEP_ACTION_LABELS[action];
 }
