@@ -5,11 +5,12 @@ import {
   RouteMode,
   RouteResponse,
 } from '../../shared/types/api';
+import { ChatCard } from '../../shared/types/portal';
 import { Icon, type IconName } from '../../shared/ui/Icon';
 
 export interface ChatArtifactPayload {
   id: string;
-  kind: 'ROUTE' | 'BUILDING' | 'NOTICE';
+  kind: 'ROUTE' | 'BUILDING' | 'NOTICE' | 'CARDS';
   title: string;
   fromPlace?: PlaceSummary | null;
   toPlace?: PlaceSummary | null;
@@ -17,6 +18,7 @@ export interface ChatArtifactPayload {
   mode?: RouteMode;
   avoidRoad?: boolean;
   buildingDetail?: BuildingDetailResponse | null;
+  cards?: ChatCard[];
 }
 
 export interface ChatMessage {
@@ -42,6 +44,10 @@ interface ChatPanelProps {
   showRouteOptions: boolean;
   isLoading: boolean;
   useMock: boolean;
+  isAuthenticated: boolean;
+  authLoading: boolean;
+  authError: string | null;
+  remainingToday: number | null;
   mode: RouteMode;
   avoidRoad: boolean;
   suggestions: PromptSuggestionItem[];
@@ -50,13 +56,20 @@ interface ChatPanelProps {
   onChangeMode: (mode: RouteMode) => void;
   onToggleAvoidRoad: () => void;
   onFallbackToMock: () => void;
+  onSignIn: () => void;
 }
 
 const Composer: React.FC<{
   compact?: boolean;
   disabled?: boolean;
+  placeholder?: string;
   onSubmit: (text: string) => void;
-}> = ({ compact = false, disabled = false, onSubmit }) => {
+}> = ({
+  compact = false,
+  disabled = false,
+  placeholder = '어디로 가볼까요?',
+  onSubmit,
+}) => {
   const [value, setValue] = useState('');
 
   const handleSend = () => {
@@ -76,8 +89,9 @@ const Composer: React.FC<{
             handleSend();
           }
         }}
-        placeholder="어디로 가볼까요?"
+        placeholder={placeholder}
         aria-label="메시지 입력"
+        maxLength={2000}
         disabled={disabled}
       />
       <button
@@ -100,6 +114,10 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
   showRouteOptions,
   isLoading,
   useMock,
+  isAuthenticated,
+  authLoading,
+  authError,
+  remainingToday,
   mode,
   avoidRoad,
   suggestions,
@@ -108,12 +126,17 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
   onChangeMode,
   onToggleAvoidRoad,
   onFallbackToMock,
+  onSignIn,
 }) => {
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [messages.length, isLoading]);
+
+  const composerPlaceholder = isAuthenticated
+    ? '학식, 공지, 캠퍼스 생활 무엇이든 물어보세요'
+    : '어디로 가볼까요? (AI 채팅·저장은 Google 로그인)';
 
   if (messages.length === 0) {
     return (
@@ -128,7 +151,35 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
             길안내부터 학식과 학사 일정까지,
             <br className="desktop-only" /> 아코봇이 빠르게 찾아드릴게요.
           </p>
-          <Composer disabled={isLoading} onSubmit={onSendMessage} />
+
+          {!isAuthenticated && (
+            <div className="auth-cta-bar">
+              <button
+                type="button"
+                className="google-login-btn"
+                disabled={authLoading}
+                onClick={onSignIn}
+              >
+                <span>
+                  {authLoading
+                    ? '로그인 상태 확인 중...'
+                    : 'Google 계정으로 로그인하고 AI 채팅 시작'}
+                </span>
+                <Icon name="arrow" size={16} />
+              </button>
+              {authError && (
+                <p className="auth-error-text" role="alert">
+                  {authError}
+                </p>
+              )}
+            </div>
+          )}
+
+          <Composer
+            disabled={isLoading}
+            placeholder={composerPlaceholder}
+            onSubmit={onSendMessage}
+          />
           <div className="suggestions">
             {suggestions.map((item) => (
               <button
@@ -145,7 +196,9 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
           </div>
         </div>
         <p className="disclaimer">
-          아코봇은 실수를 할 수 있어요. 중요한 정보는 한 번 더 확인해 주세요.
+          {remainingToday !== null
+            ? `오늘 남은 메시지 ${remainingToday} / 50 · 아코봇은 실수를 할 수 있어요.`
+            : '아코봇은 실수를 할 수 있어요. 중요한 정보는 한 번 더 확인해 주세요.'}
         </p>
       </main>
     );
@@ -196,7 +249,12 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                     onClick={() => msg.artifact && onOpenArtifact(msg.artifact)}
                   >
                     <Icon
-                      name={msg.artifact.kind === 'NOTICE' ? 'notice' : 'map'}
+                      name={
+                        msg.artifact.kind === 'NOTICE' ||
+                        msg.artifact.kind === 'CARDS'
+                          ? 'notice'
+                          : 'map'
+                      }
                       size={17}
                     />
                     <span>
@@ -234,7 +292,11 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
               A
             </span>
             <div className="assistant-body">
-              <p className="assistant-text">캠퍼스 정보를 찾고 있어요...</p>
+              <p className="assistant-text">
+                {isAuthenticated
+                  ? '답변을 준비하고 있어요...'
+                  : '캠퍼스 정보를 찾고 있어요...'}
+              </p>
             </div>
           </div>
         )}
@@ -269,8 +331,17 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
             </button>
           </div>
         )}
-        <Composer compact disabled={isLoading} onSubmit={onSendMessage} />
-        <p>아코봇은 실수를 할 수 있어요. 중요한 정보는 한 번 더 확인해 주세요.</p>
+        <Composer
+          compact
+          disabled={isLoading}
+          placeholder={composerPlaceholder}
+          onSubmit={onSendMessage}
+        />
+        <p>
+          {remainingToday !== null
+            ? `오늘 남은 메시지 ${remainingToday} / 50 · 아코봇은 실수를 할 수 있어요.`
+            : '아코봇은 실수를 할 수 있어요. 중요한 정보는 한 번 더 확인해 주세요.'}
+        </p>
       </div>
     </main>
   );

@@ -19,6 +19,20 @@ import {
   searchPlaces,
   setUseMockMode,
 } from '../shared/api/apiClient';
+import {
+  signInWithGoogle,
+  signOutFirebase,
+  subscribeAuthState,
+} from '../shared/api/firebaseAuth';
+import {
+  createConversation,
+  deleteConversation,
+  fetchConversationDetail,
+  fetchConversations,
+  fetchMe,
+  PortalApiError,
+  sendConversationMessage,
+} from '../shared/api/portalApi';
 import { MOCK_MAP_INFO, MOCK_PLACES } from '../shared/data/mockApiV1Data';
 import {
   BuildingDetailResponse,
@@ -28,6 +42,12 @@ import {
   RouteMode,
   RouteResponse,
 } from '../shared/types/api';
+import {
+  ChatCard,
+  ConversationSummary,
+  MessageResponse,
+  UserResponse,
+} from '../shared/types/portal';
 import { MapPickTarget } from '../shared/types/ui';
 import { Icon } from '../shared/ui/Icon';
 import { ArtifactRouteSearchBar } from '../widgets/artifact-search/ArtifactRouteSearchBar';
@@ -84,6 +104,36 @@ const PORTAL_NOTICE_ITEMS: PortalNoticeItem[] = [
 
 function createId(prefix: string): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+}
+
+function getCardsArtifactTitle(cards: ChatCard[]): string {
+  const first = cards[0]?.toolName;
+  if (first === 'cafeteria_get_menu') return '학식 메뉴 보기';
+  if (first === 'notice_search') return '학교 공지 검색 결과 보기';
+  if (first === 'notice_get_detail') return '학교 공지 상세 보기';
+  return '답변 상세 카드 보기';
+}
+
+function buildCardsArtifact(
+  cards: ChatCard[],
+  messageId: number
+): ChatArtifactPayload | undefined {
+  if (!cards || cards.length === 0) return undefined;
+  return {
+    id: `cards-${messageId}`,
+    kind: 'CARDS',
+    title: getCardsArtifactTitle(cards),
+    cards,
+  };
+}
+
+function mapServerMessage(msg: MessageResponse): ChatMessage {
+  return {
+    id: `srv-${msg.id}`,
+    role: msg.role,
+    text: msg.content,
+    artifact: buildCardsArtifact(msg.cards, msg.id),
+  };
 }
 
 function buildPortalReply(topic: PortalTopic): {
@@ -221,6 +271,20 @@ export const GuideWorkspacePage: React.FC = () => {
     []
   );
 
+  // 인증 · 서버 대화 · 답변 카드 상태
+  const [currentUser, setCurrentUser] = useState<UserResponse | null>(null);
+  const [authLoading, setAuthLoading] = useState<boolean>(true);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [conversations, setConversations] = useState<ConversationSummary[]>([]);
+  const [activeConversationId, setActiveConversationId] = useState<
+    number | null
+  >(null);
+  const [remainingToday, setRemainingToday] = useState<number | null>(null);
+  const [activeCards, setActiveCards] = useState<ChatCard[]>([]);
+  const [activeCardsTitle, setActiveCardsTitle] = useState<string | undefined>(
+    undefined
+  );
+
   const requestIdRef = useRef(0);
   const swipeStartXRef = useRef<number | null>(null);
 
@@ -268,6 +332,142 @@ export const GuideWorkspacePage: React.FC = () => {
   useEffect(() => {
     void loadMapAndBuildings();
   }, [useMock, loadMapAndBuildings]);
+
+  const refreshConversations = useCallback(async () => {
+    try {
+      const res = await fetchConversations();
+      setConversations(res.items);
+    } catch {
+      // ignore transient sidebar refresh failure
+    }
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    const unsubscribe = subscribeAuthState((fbUser) => {
+      if (!fbUser) {
+        if (!active) return;
+        setCurrentUser(null);
+        setConversations([]);
+        setActiveConversationId(null);
+        setRemainingToday(null);
+        setAuthLoading(false);
+        return;
+      }
+
+      setAuthLoading(true);
+      setAuthError(null);
+      void (async () => {
+        try {
+          const me = await fetchMe();
+          if (!active) return;
+          setCurrentUser(me);
+          setHasServerError(false);
+          const convList = await fetchConversations();
+          if (!active) return;
+          setConversations(convList.items);
+        } catch (err) {
+          if (!active) return;
+          if (err instanceof PortalApiError) {
+            setAuthError(err.message);
+            if (
+              err.code === 'EMAIL_NOT_ALLOWED' ||
+              err.code === 'UNAUTHORIZED'
+            ) {
+              void signOutFirebase();
+            }
+          } else {
+            setAuthError('사용자 정보를 불러오지 못했어요. 다시 로그인해 주세요.');
+          }
+          setCurrentUser(null);
+        } finally {
+          if (active) setAuthLoading(false);
+        }
+      })();
+    });
+
+    return () => {
+      active = false;
+      unsubscribe();
+    };
+  }, []);
+
+  const handleSignIn = async () => {
+    setAuthError(null);
+    setAuthLoading(true);
+    try {
+      await signInWithGoogle();
+    } catch (err: unknown) {
+      setAuthLoading(false);
+      const code =
+        typeof err === 'object' && err !== null && 'code' in err
+          ? String((err as { code: unknown }).code)
+          : '';
+      if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
+        return;
+      }
+      setAuthError('Google 로그인에 실패했어요. 팝업 차단을 해제하고 다시 시도해 주세요.');
+    }
+  };
+
+  const handleSignOut = async () => {
+    setAuthError(null);
+    await signOutFirebase();
+    setMessages([]);
+    setActiveConversationId(null);
+    setActiveCards([]);
+    setActiveCardsTitle(undefined);
+    setRemainingToday(null);
+    setArtifact(null);
+    setActiveSection('chat');
+  };
+
+  const handleSelectConversation = async (convId: number) => {
+    setIsLoading(true);
+    setActiveSection('chat');
+    try {
+      const detail = await fetchConversationDetail(convId);
+      setActiveConversationId(detail.id);
+      setMessages(detail.messages.map(mapServerMessage));
+      setArtifactTitle(detail.title);
+      setActiveCards([]);
+      setActiveCardsTitle(undefined);
+      setArtifact(null);
+    } catch (err) {
+      const msg =
+        err instanceof PortalApiError
+          ? err.message
+          : '대화 내용을 불러오지 못했어요.';
+      appendAssistantMessage(msg, { isError: true });
+      if (err instanceof PortalApiError && err.code === 'CONVERSATION_NOT_FOUND') {
+        void refreshConversations();
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDeleteConversation = async (convId: number) => {
+    try {
+      await deleteConversation(convId);
+      setConversations((prev) => prev.filter((c) => c.id !== convId));
+      if (activeConversationId === convId) {
+        setActiveConversationId(null);
+        setMessages([]);
+        setActiveCards([]);
+        setActiveCardsTitle(undefined);
+        if (artifact === 'notice') {
+          setArtifact(null);
+        }
+      }
+    } catch (err) {
+      const msg =
+        err instanceof PortalApiError
+          ? err.message
+          : '대화를 삭제하지 못했어요.';
+      appendAssistantMessage(msg, { isError: true });
+    }
+  };
 
   const registerArtifact = (item: ChatArtifactPayload) => {
     setArtifactHistory((prev) => [
@@ -425,6 +625,70 @@ export const GuideWorkspacePage: React.FC = () => {
   const handleSendMessage = async (rawText: string) => {
     const text = rawText.trim();
     if (!text) return;
+
+    // 로그인 사용자는 백엔드 인증·채팅 API(/conversations)로 전송
+    if (currentUser) {
+      if (text.length > 2000) {
+        appendAssistantMessage('메시지는 2,000자 이하로 입력해 주세요.', {
+          isError: true,
+        });
+        return;
+      }
+
+      const optimisticId = createId('msg-user');
+      setMessages((prev) => [
+        ...prev,
+        { id: optimisticId, role: 'user', text },
+      ]);
+      setIsLoading(true);
+
+      try {
+        let convId = activeConversationId;
+        if (convId === null) {
+          const created = await createConversation();
+          convId = created.id;
+          setActiveConversationId(convId);
+          setConversations((prev) => [created, ...prev]);
+        }
+
+        const res = await sendConversationMessage(convId, { content: text });
+        const userMsg = mapServerMessage(res.userMessage);
+        const assistantMsg = mapServerMessage(res.assistantMessage);
+
+        setMessages((prev) => [
+          ...prev.filter((m) => m.id !== optimisticId),
+          userMsg,
+          assistantMsg,
+        ]);
+        setRemainingToday(res.remainingToday);
+
+        if (assistantMsg.artifact && assistantMsg.artifact.cards) {
+          setActiveCards(assistantMsg.artifact.cards);
+          setActiveCardsTitle(assistantMsg.artifact.title);
+          setActiveArtifactId(assistantMsg.artifact.id);
+          setActiveSection('notice');
+          setArtifact('notice');
+        }
+
+        void refreshConversations();
+      } catch (err) {
+        if (err instanceof PortalApiError) {
+          if (err.code === 'CONVERSATION_NOT_FOUND') {
+            setActiveConversationId(null);
+            void refreshConversations();
+          }
+          appendAssistantMessage(err.message, { isError: true });
+        } else {
+          appendAssistantMessage(
+            '메시지를 전송하는 중 오류가 발생했어요. 잠시 후 다시 시도해 주세요.',
+            { isError: true }
+          );
+        }
+      } finally {
+        setIsLoading(false);
+      }
+      return;
+    }
 
     setMessages((prev) => [
       ...prev,
@@ -608,7 +872,17 @@ export const GuideWorkspacePage: React.FC = () => {
     setActiveArtifactId(payload.id);
     setArtifactError(null);
 
+    if (payload.kind === 'CARDS' && payload.cards) {
+      setActiveCards(payload.cards);
+      setActiveCardsTitle(payload.title);
+      setActiveSection('notice');
+      setArtifact('notice');
+      return;
+    }
+
     if (payload.kind === 'NOTICE') {
+      setActiveCards([]);
+      setActiveCardsTitle(undefined);
       setActiveSection('notice');
       setArtifact('notice');
       return;
@@ -641,8 +915,11 @@ export const GuideWorkspacePage: React.FC = () => {
     setActiveSection(section);
 
     if (section === 'chat') {
+      setActiveConversationId(null);
       setMessages([]);
       setArtifact(null);
+      setActiveCards([]);
+      setActiveCardsTitle(undefined);
       setRouteResult(null);
       setFromPlace(null);
       setToPlace(null);
@@ -653,6 +930,8 @@ export const GuideWorkspacePage: React.FC = () => {
     }
 
     if (section === 'notice') {
+      setActiveCards([]);
+      setActiveCardsTitle(undefined);
       setArtifact('notice');
       return;
     }
@@ -795,6 +1074,10 @@ export const GuideWorkspacePage: React.FC = () => {
         <NavSidebar
           active={activeSection}
           recentItems={recentItems}
+          conversations={conversations}
+          activeConversationId={activeConversationId}
+          user={currentUser}
+          authLoading={authLoading}
           useMock={useMock}
           hasServerError={hasServerError}
           onSelectSection={selectSection}
@@ -802,6 +1085,10 @@ export const GuideWorkspacePage: React.FC = () => {
             const found = artifactHistory.find((a) => a.id === id);
             if (found) handleOpenArtifact(found);
           }}
+          onSelectConversation={(id) => void handleSelectConversation(id)}
+          onDeleteConversation={(id) => void handleDeleteConversation(id)}
+          onSignIn={() => void handleSignIn()}
+          onSignOut={() => void handleSignOut()}
           onRetryLiveServer={handleRetryLiveServer}
         />
       </div>
@@ -841,6 +1128,10 @@ export const GuideWorkspacePage: React.FC = () => {
           <NavSidebar
             active={activeSection}
             recentItems={recentItems}
+            conversations={conversations}
+            activeConversationId={activeConversationId}
+            user={currentUser}
+            authLoading={authLoading}
             useMock={useMock}
             hasServerError={hasServerError}
             onSelectSection={selectSection}
@@ -848,6 +1139,10 @@ export const GuideWorkspacePage: React.FC = () => {
               const found = artifactHistory.find((a) => a.id === id);
               if (found) handleOpenArtifact(found);
             }}
+            onSelectConversation={(id) => void handleSelectConversation(id)}
+            onDeleteConversation={(id) => void handleDeleteConversation(id)}
+            onSignIn={() => void handleSignIn()}
+            onSignOut={() => void handleSignOut()}
             onRetryLiveServer={handleRetryLiveServer}
             onCloseMobile={() => setMobileMenuOpen(false)}
           />
@@ -862,6 +1157,10 @@ export const GuideWorkspacePage: React.FC = () => {
         showRouteOptions={artifact === 'map'}
         isLoading={isLoading}
         useMock={useMock}
+        isAuthenticated={currentUser !== null}
+        authLoading={authLoading}
+        authError={authError}
+        remainingToday={remainingToday}
         mode={mode}
         avoidRoad={avoidRoad}
         suggestions={useMock ? MOCK_SUGGESTIONS : LIVE_SUGGESTIONS}
@@ -872,6 +1171,7 @@ export const GuideWorkspacePage: React.FC = () => {
           recalculateActiveRouteIfNeeded(mode, !avoidRoad)
         }
         onFallbackToMock={handleFallbackToMock}
+        onSignIn={() => void handleSignIn()}
       />
 
       {artifact === 'map' && (
@@ -1138,6 +1438,8 @@ export const GuideWorkspacePage: React.FC = () => {
       {artifact === 'notice' && (
         <PortalArtifactPanel
           items={PORTAL_NOTICE_ITEMS}
+          cards={activeCards}
+          title={activeCardsTitle}
           onClose={closeArtifact}
           onSelectPrompt={(prompt) => void handleSendMessage(prompt)}
         />

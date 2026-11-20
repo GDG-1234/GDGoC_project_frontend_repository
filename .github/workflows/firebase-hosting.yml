@@ -40,13 +40,13 @@ jobs:
             echo "::notice::FIREBASE_SERVICE_ACCOUNT_GDG_1234 시크릿이 미등록 상태라 Preview 배포를 건너뜁니다."
           fi
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         if: steps.check_secret.outputs.configured == 'true'
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         if: steps.check_secret.outputs.configured == 'true'
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
 
       - name: Install dependencies
@@ -84,13 +84,13 @@ jobs:
             echo "::notice::FIREBASE_SERVICE_ACCOUNT_GDG_1234 시크릿이 미등록 상태라 Live 배포를 건너뜁니다."
           fi
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         if: steps.check_secret.outputs.configured == 'true'
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         if: steps.check_secret.outputs.configured == 'true'
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
 
       - name: Install dependencies
