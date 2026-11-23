@@ -2,7 +2,13 @@ import React from 'react';
 import { ConversationSummary, UserResponse } from '../../shared/types/portal';
 import { Icon, type IconName } from '../../shared/ui/Icon';
 
-export type NavSectionKey = 'chat' | 'map' | 'saved' | 'notice';
+export type NavSectionKey =
+  | 'chat'
+  | 'cafeteria'
+  | 'notice'
+  | 'timetable'
+  | 'map'
+  | 'saved';
 
 export interface SidebarHistoryItem {
   id: string;
@@ -28,15 +34,23 @@ interface NavSidebarProps {
   onCloseMobile?: () => void;
 }
 
-const NAV_ITEMS: Array<{
+interface NavItemDef {
   id: NavSectionKey;
   label: string;
   icon: IconName;
-}> = [
-  { id: 'chat', label: '새 채팅', icon: 'chat' },
-  { id: 'map', label: '캠퍼스 길안내', icon: 'map' },
+  badge?: string;
+}
+
+const PORTAL_NAV_ITEMS: NavItemDef[] = [
+  { id: 'chat', label: 'AI 질문', icon: 'chat' },
+  { id: 'cafeteria', label: '오늘의 학식', icon: 'utensils' },
+  { id: 'notice', label: '새 공지', icon: 'notice' },
+  { id: 'timetable', label: '내 시간표', icon: 'calendar', badge: '예정' },
+];
+
+const MAP_NAV_ITEMS: NavItemDef[] = [
+  { id: 'map', label: '캠퍼스 지도', icon: 'map' },
   { id: 'saved', label: '건물 · 편의시설', icon: 'bookmark' },
-  { id: 'notice', label: '학사 공지 · 일정', icon: 'notice' },
 ];
 
 export const NavSidebar: React.FC<NavSidebarProps> = ({
@@ -77,18 +91,37 @@ export const NavSidebar: React.FC<NavSidebarProps> = ({
     ? (user.name || user.email).slice(0, 1).toUpperCase()
     : 'G';
 
+  const renderNavButton = (item: NavItemDef) => (
+    <button
+      key={item.id}
+      type="button"
+      className={active === item.id ? 'nav-item active' : 'nav-item'}
+      aria-label={item.label}
+      title={item.label}
+      onClick={() => {
+        onSelectSection(item.id);
+        onCloseMobile?.();
+      }}
+    >
+      <Icon name={item.icon} size={18} />
+      <span className="nav-item-label">{item.label}</span>
+      {item.badge && <em className="nav-item-badge">{item.badge}</em>}
+    </button>
+  );
+
   return (
     <aside className="sidebar" aria-label="아코봇 주 메뉴">
       <div className="brand-row">
         <button
           type="button"
-          className="brand"
+          className="brand brand-stacked"
           onClick={() => {
             onSelectSection('chat');
             onCloseMobile?.();
           }}
           aria-label="아코봇 홈"
         >
+          <small className="brand-sub">Dongguk University</small>
           <span>아코봇</span>
         </button>
         {onCloseMobile && (
@@ -118,22 +151,15 @@ export const NavSidebar: React.FC<NavSidebarProps> = ({
       </button>
 
       <nav className="main-nav" aria-label="주 메뉴">
-        {NAV_ITEMS.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            className={active === item.id ? 'nav-item active' : 'nav-item'}
-            aria-label={item.label}
-            title={item.label}
-            onClick={() => {
-              onSelectSection(item.id);
-              onCloseMobile?.();
-            }}
-          >
-            <Icon name={item.icon} size={19} />
-            <span>{item.label}</span>
-          </button>
-        ))}
+        <div className="nav-group">
+          <span className="nav-group-label">AI · 포털</span>
+          {PORTAL_NAV_ITEMS.map(renderNavButton)}
+        </div>
+        <div className="nav-divider" aria-hidden="true" />
+        <div className="nav-group">
+          <span className="nav-group-label">캠퍼스 길안내</span>
+          {MAP_NAV_ITEMS.map(renderNavButton)}
+        </div>
       </nav>
 
       <div className="sidebar-bottom">
@@ -244,6 +270,11 @@ export const NavSidebar: React.FC<NavSidebarProps> = ({
           </span>
           <Icon name={user ? 'logout' : 'arrow'} size={18} />
         </button>
+
+        <div className="sidebar-credit" aria-hidden="true">
+          <span>GDGoC Dongguk</span>
+          <strong>GDG 1234</strong>
+        </div>
       </div>
     </aside>
   );
