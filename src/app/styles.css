@@ -2486,7 +2486,6 @@ button {
   margin: 2px 0 4px;
 }
 
-.artifact-aux-bar,
 .steps-sheet-footer-actions {
   display: flex;
   align-items: center;
@@ -2558,8 +2557,7 @@ button {
     box-shadow: 0 10px 24px rgba(15, 23, 42, 0.16);
   }
 
-  .indoor-pip-card,
-  .desktop-only-flex {
+  .indoor-pip-card {
     display: none !important;
   }
 
@@ -2569,5 +2567,531 @@ button {
 
   .route-hero-time {
     font-size: 13px;
+  }
+}
+
+/* ============================================================================
+ * Wide Artifact + Slim Companion Chat + @container Mockup Dashboard Layout
+ * ============================================================================ */
+
+/* Desktop: invert ratio when artifact is open (collapsed nav + slim chat + flex:1 artifact) */
+@media (min-width: 761px) {
+  .desktop-sidebar.collapsed {
+    flex: 0 0 68px;
+  }
+
+  .desktop-sidebar.collapsed .sidebar {
+    width: 68px;
+  }
+
+  .app-shell.artifact-open .chat-main {
+    flex: 0 0 330px;
+    min-width: 300px;
+    max-width: 340px;
+    border-right: 1px solid var(--line);
+  }
+
+  .app-shell.artifact-open .chat-main .empty-content {
+    width: calc(100% - 32px);
+  }
+
+  .app-shell.artifact-open .chat-main .empty-content h1 {
+    font-size: 24px;
+    letter-spacing: -1.1px;
+  }
+
+  .app-shell.artifact-open .chat-main .lead {
+    font-size: 12px;
+    margin: 12px 0 20px;
+  }
+
+  .app-shell.artifact-open .chat-main .suggestions {
+    width: 100%;
+  }
+
+  .app-shell.artifact-open .chat-main .messages {
+    padding: 18px 16px 128px;
+  }
+
+  .app-shell.artifact-open .chat-main .conversation-composer {
+    width: calc(100% - 24px);
+    bottom: 10px;
+  }
+
+  .app-shell.artifact-open .chat-main .composer {
+    height: 50px;
+    padding: 0 8px 0 14px;
+    border-radius: 12px;
+  }
+
+  .app-shell.artifact-open .chat-main .composer input {
+    font-size: 13px;
+  }
+
+  .app-shell.artifact-open .chat-main .composer > button {
+    width: 34px;
+    height: 34px;
+  }
+
+  .app-shell.artifact-open .chat-main .route-option-chips {
+    gap: 5px;
+    margin-bottom: 6px;
+  }
+
+  .app-shell.artifact-open .chat-main .route-option-chip {
+    padding: 4px 8px;
+    font-size: 11px;
+  }
+
+  .app-shell.artifact-open .artifact {
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: none;
+    border-left: 0;
+  }
+}
+
+@media (min-width: 761px) and (max-width: 1200px) {
+  .app-shell.artifact-open .chat-main {
+    flex-basis: 300px;
+    min-width: 280px;
+    max-width: 300px;
+  }
+}
+
+/* Container Query root on .artifact so internal layout adapts cleanly to PC wide vs narrow/mobile */
+.artifact {
+  container-type: inline-size;
+  container-name: artifact;
+}
+
+.notice-artifact .notice-list {
+  max-width: 780px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.artifact-map-stage {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.artifact-search-slot {
+  display: none;
+  flex: 0 0 auto;
+}
+
+.artifact-search-slot.is-open {
+  display: block;
+}
+
+.route-search-lead-icon {
+  display: none;
+  color: #999;
+  flex: 0 0 auto;
+}
+
+.route-find-btn {
+  flex: 0 0 auto;
+  height: 34px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 9px;
+  background: var(--orange);
+  color: #ffffff;
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: background 0.15s ease;
+}
+
+.route-find-btn:hover:not(:disabled) {
+  background: #dc5e1b;
+}
+
+.route-find-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.artifact-map-workspace {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.artifact-map-card {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.map-card-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  color: #444;
+}
+
+.artifact-side-column {
+  display: none;
+}
+
+.artifact-bottom-actions {
+  display: none;
+}
+
+.artifact-compact-bottom {
+  flex: 0 0 auto;
+}
+
+/* Right side-card styling (using existing design system) */
+.steps-card-mode {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 16px 16px 14px;
+}
+
+.steps-card-hero {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 5px;
+  padding-bottom: 14px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.steps-card-hero-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 15px;
+  color: var(--ink);
+}
+
+.steps-card-hero-title svg {
+  color: var(--orange);
+}
+
+.steps-card-hero-saved {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--orange);
+  background: var(--orange-soft);
+  border: 1px solid #fed7aa;
+  border-radius: 999px;
+  padding: 2px 10px;
+}
+
+.steps-card-hero-meta {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.steps-card-mode .steps-flow-list {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.steps-card-mode .step-row {
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--line);
+  background: var(--paper);
+  padding: 10px 12px;
+}
+
+.steps-card-mode .step-row-active {
+  border-color: var(--orange);
+  background: var(--orange-soft);
+}
+
+.steps-card-idle {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 18px 16px;
+  gap: 14px;
+}
+
+.steps-idle-presets {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.steps-idle-preset-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 11px 13px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--line);
+  background: var(--paper);
+  color: #333;
+  font-size: 12.5px;
+  font-weight: 600;
+  text-align: left;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.steps-idle-preset-btn:hover {
+  border-color: var(--orange);
+  background: var(--orange-soft);
+  color: var(--orange);
+}
+
+.mockup-pill-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  height: 38px;
+  padding: 0 14px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--line);
+  background: var(--paper);
+  color: #333;
+  font-size: 12.5px;
+  font-weight: 600;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.mockup-pill-btn:hover {
+  border-color: #fed7aa;
+  background: var(--orange-soft);
+  color: var(--orange);
+}
+
+.mockup-pill-btn-soft {
+  background: var(--sidebar);
+  border-color: var(--line);
+  color: #555;
+}
+
+.mockup-pill-btn-soft:hover {
+  background: #f0f0ee;
+  border-color: #ddd;
+  color: var(--ink);
+}
+
+/* ===== Wide Artifact (>= 780px): 2-Column Layout with Existing Design System ===== */
+@container artifact (min-width: 780px) {
+  .artifact-map .artifact-map-stage,
+  .artifact-map .artifact-subpanel {
+    background: var(--sidebar);
+  }
+
+  .artifact-map .artifact-header {
+    background: var(--paper);
+    border-bottom-color: var(--line);
+    min-height: 52px;
+    padding: 8px 22px;
+  }
+
+  .artifact-map .header-search-toggle {
+    display: none;
+  }
+
+  .artifact-map .artifact-map-tabs {
+    background: var(--paper);
+    border-bottom-color: var(--line);
+    padding: 6px 22px;
+  }
+
+  .artifact-map .artifact-search-slot {
+    display: block;
+    padding: 14px 20px 6px;
+  }
+
+  .artifact-map .artifact-search-bar {
+    padding: 6px 8px 6px 15px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: var(--paper);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+  }
+
+  .artifact-map .artifact-search-bar:focus-within {
+    border-color: var(--orange);
+    box-shadow: 0 0 0 2px var(--orange-soft);
+  }
+
+  .artifact-map .route-search-lead-icon {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .artifact-map .route-search-field {
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    height: 36px;
+    padding: 0 6px;
+  }
+
+  .artifact-map .route-search-field:focus-within {
+    box-shadow: none;
+  }
+
+  .artifact-map .route-search-tag {
+    color: var(--muted);
+    font-size: 12px;
+  }
+
+  .artifact-map .route-search-field input {
+    font-size: 13px;
+    font-weight: 500;
+  }
+
+  .artifact-map .artifact-map-workspace {
+    display: grid;
+    grid-template-columns: minmax(0, 1.65fr) minmax(275px, 1fr);
+    gap: 14px;
+    padding: 8px 20px 12px;
+  }
+
+  .artifact-map .artifact-map-workspace.side-collapsed {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .artifact-map .artifact-map-workspace.side-collapsed .artifact-side-column {
+    display: none;
+  }
+
+  .artifact-map .side-panel-toggle-btn {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .artifact-map .artifact-map-card {
+    border-radius: 14px;
+    border: 1px solid var(--line);
+    background: var(--paper);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
+  }
+
+  .artifact-map .artifact-pick-bar {
+    background: var(--paper);
+    border-bottom-color: var(--line);
+    padding: 9px 14px;
+  }
+
+  .artifact-map .indoor-pip-card {
+    width: 184px;
+    padding: 8px;
+    border-radius: 12px;
+    border: 1px solid var(--line);
+  }
+
+  .artifact-map .indoor-pip-card img {
+    height: 92px;
+  }
+
+  .artifact-map .artifact-side-column {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    border-radius: 14px;
+    border: 1px solid var(--line);
+    background: var(--paper);
+    overflow: hidden;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
+  }
+
+  .artifact-map .artifact-side-column .building-detail-panel {
+    height: 100%;
+    max-height: none;
+    border-top: 0;
+  }
+
+  .artifact-map .artifact-bottom-actions {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    padding: 0 20px 14px;
+    flex: 0 0 auto;
+  }
+
+  .artifact-map .artifact-compact-bottom {
+    display: none;
+  }
+}
+
+.side-panel-toggle-btn {
+  display: none;
+}
+
+.side-column-topbar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--line);
+  background: var(--paper);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.side-column-collapse-btn {
+  padding: 3px 9px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--paper);
+  color: #555;
+  font-size: 11px;
+  font-weight: 600;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.side-column-collapse-btn:hover {
+  background: #f5f5f3;
+  color: var(--ink);
+}
+
+.side-column-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Mobile (<= 760px): Keep Artifact -> Fullscreen framework intact for both Map & Notice */
+@media (max-width: 760px) {
+  .app-shell.artifact-open .conversation {
+    height: 100%;
+    border-bottom: 0;
+  }
+
+  .artifact {
+    position: fixed;
+    top: 58px;
+    left: 0;
+    right: 0;
+    height: calc(100dvh - 58px);
+    z-index: 1300;
+  }
+
+  .route-find-btn {
+    padding: 0 12px;
+    font-size: 12px;
   }
 }

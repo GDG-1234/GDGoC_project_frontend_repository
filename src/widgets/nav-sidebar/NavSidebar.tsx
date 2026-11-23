@@ -8,6 +8,7 @@ export type NavSectionKey =
   | 'notice'
   | 'timetable'
   | 'map'
+  | 'shortcuts'
   | 'saved';
 
 export interface SidebarHistoryItem {
@@ -41,16 +42,17 @@ interface NavItemDef {
   badge?: string;
 }
 
+const MAP_NAV_ITEMS: NavItemDef[] = [
+  { id: 'map', label: '캠퍼스 지도', icon: 'map' },
+  { id: 'shortcuts', label: '지름길 모음', icon: 'bolt' },
+  { id: 'saved', label: '건물 · 편의시설', icon: 'bookmark' },
+];
+
 const PORTAL_NAV_ITEMS: NavItemDef[] = [
-  { id: 'chat', label: 'AI 질문', icon: 'chat' },
+  { id: 'chat', label: 'AI 질문(아코봇)', icon: 'chat' },
   { id: 'cafeteria', label: '오늘의 학식', icon: 'utensils' },
   { id: 'notice', label: '새 공지', icon: 'notice' },
   { id: 'timetable', label: '내 시간표', icon: 'calendar', badge: '예정' },
-];
-
-const MAP_NAV_ITEMS: NavItemDef[] = [
-  { id: 'map', label: '캠퍼스 지도', icon: 'map' },
-  { id: 'saved', label: '건물 · 편의시설', icon: 'bookmark' },
 ];
 
 export const NavSidebar: React.FC<NavSidebarProps> = ({
@@ -152,13 +154,13 @@ export const NavSidebar: React.FC<NavSidebarProps> = ({
 
       <nav className="main-nav" aria-label="주 메뉴">
         <div className="nav-group">
-          <span className="nav-group-label">AI · 포털</span>
-          {PORTAL_NAV_ITEMS.map(renderNavButton)}
+          <span className="nav-group-label">캠퍼스 길안내</span>
+          {MAP_NAV_ITEMS.map(renderNavButton)}
         </div>
         <div className="nav-divider" aria-hidden="true" />
         <div className="nav-group">
-          <span className="nav-group-label">캠퍼스 길안내</span>
-          {MAP_NAV_ITEMS.map(renderNavButton)}
+          <span className="nav-group-label">AI · 포털</span>
+          {PORTAL_NAV_ITEMS.map(renderNavButton)}
         </div>
       </nav>
 

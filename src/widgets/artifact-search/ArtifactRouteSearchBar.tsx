@@ -9,6 +9,8 @@ interface ArtifactRouteSearchBarProps {
   onSelectFrom: (place: PlaceSummary) => void;
   onSelectTo: (place: PlaceSummary) => void;
   onSwapPlaces: () => void;
+  onFindRoute?: () => void;
+  isLoading?: boolean;
 }
 
 interface PlaceSearchInputProps {
@@ -163,12 +165,20 @@ export const ArtifactRouteSearchBar: React.FC<ArtifactRouteSearchBarProps> = ({
   onSelectFrom,
   onSelectTo,
   onSwapPlaces,
+  onFindRoute,
+  isLoading = false,
 }) => {
+  const canSearch = Boolean(fromPlace && toPlace) && !isLoading;
+
   return (
     <div className="artifact-search-bar" role="region" aria-label="출발·도착지 검색">
+      <span className="route-search-lead-icon" aria-hidden="true">
+        <Icon name="search" size={16} />
+      </span>
+
       <PlaceSearchInput
-        label="출발"
-        placeholder="출발 장소 검색 (예: 정문, 혜화관)"
+        label="[출발]"
+        placeholder="출발 장소 (예: 신공학관 1층)"
         selectedPlace={fromPlace}
         onSelectPlace={onSelectFrom}
       />
@@ -185,11 +195,27 @@ export const ArtifactRouteSearchBar: React.FC<ArtifactRouteSearchBarProps> = ({
       </button>
 
       <PlaceSearchInput
-        label="도착"
-        placeholder="도착 장소 검색 (예: 신공학관 3층)"
+        label="[도착]"
+        placeholder="도착 장소 (예: 원흥관 4층)"
         selectedPlace={toPlace}
         onSelectPlace={onSelectTo}
       />
+
+      {onFindRoute && (
+        <button
+          type="button"
+          className="route-find-btn"
+          disabled={!canSearch}
+          onClick={onFindRoute}
+          title={
+            canSearch
+              ? '선택한 출발·도착지로 경로 다시 찾기'
+              : '출발지와 도착지를 모두 선택해 주세요'
+          }
+        >
+          {isLoading ? '탐색 중...' : '길 찾기'}
+        </button>
+      )}
     </div>
   );
 };
