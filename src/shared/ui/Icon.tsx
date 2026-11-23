@@ -19,7 +19,11 @@ export type IconName =
   | 'swap'
   | 'trash'
   | 'logout'
-  | 'external';
+  | 'external'
+  | 'utensils'
+  | 'calendar'
+  | 'bolt'
+  | 'flag';
 
 interface IconProps {
   name: IconName;
@@ -114,6 +118,26 @@ const ICON_PATHS: Record<IconName, ReactNode> = {
       <path d="M14 3h7v7" />
       <path d="M10 14 21 3" />
       <path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5" />
+    </>
+  ),
+  utensils: (
+    <>
+      <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2" />
+      <path d="M7 2v20" />
+      <path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7" />
+    </>
+  ),
+  calendar: (
+    <>
+      <rect x="3" y="4" width="18" height="18" rx="2" />
+      <path d="M16 2v4M8 2v4M3 10h18" />
+    </>
+  ),
+  bolt: <path d="M13 2 3 14h8l-1 8 10-12h-8l1-8Z" />,
+  flag: (
+    <>
+      <path d="M4 22V4" />
+      <path d="M4 4h13l-2 4.5L17 13H4" />
     </>
   ),
 };

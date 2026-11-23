@@ -5,12 +5,15 @@ import {
   formatStepActionLabel,
 } from '../../shared/api/apiClient';
 import { RouteResponse } from '../../shared/types/api';
+import { Icon } from '../../shared/ui/Icon';
 
 interface ArtifactStepsPanelProps {
   routeResult: RouteResponse;
   activeStepIndex: number | null;
   onSelectStep: (stepIndex: number) => void;
-  onCloseSheet: () => void;
+  onCloseSheet?: () => void;
+  onFeedback?: (kind: 'SHORTCUT' | 'REPORT') => void;
+  variant?: 'sheet' | 'card';
 }
 
 export const ArtifactStepsPanel: React.FC<ArtifactStepsPanelProps> = ({
@@ -18,43 +21,77 @@ export const ArtifactStepsPanel: React.FC<ArtifactStepsPanelProps> = ({
   activeStepIndex,
   onSelectStep,
   onCloseSheet,
+  onFeedback,
+  variant = 'sheet',
 }) => {
   const { summary, steps } = routeResult;
+  const isCard = variant === 'card';
 
   return (
-    <div className="artifact-steps-pane">
-      <div className="steps-sheet-header">
-        <div className="steps-sheet-meta">
-          <strong>단계별 이동 안내 ({steps.length}단계)</strong>
-          <span>
-            {formatDurationText(summary.totalSeconds)} · {summary.totalKcal} kcal · 실내 층변경{' '}
-            {summary.floorChanges}회{summary.usesRoad ? ' · 차도포함' : ''}
-          </span>
-        </div>
-        <button
-          type="button"
-          className="route-steps-toggle"
-          onClick={onCloseSheet}
-          aria-expanded="true"
-        >
-          접기 ▾
-        </button>
-      </div>
-
-      {summary.usesShortcut && (
-        <div className="shortcut-highlight-banner">
-          <strong>★ 학교 지름길 포함 경로</strong>
-          {summary.savedSeconds !== null && summary.savedSeconds > 0 && (
-            <span>({formatDurationText(summary.savedSeconds)} 빨라요)</span>
+    <div className={isCard ? 'artifact-steps-pane steps-card-mode' : 'artifact-steps-pane'}>
+      {isCard ? (
+        <div className="steps-card-hero">
+          <div className="steps-card-hero-title">
+            <Icon name="flag" size={16} />
+            <strong>소요 시간: 약 {formatDurationText(summary.totalSeconds)}</strong>
+          </div>
+          {summary.usesShortcut &&
+          summary.savedSeconds !== null &&
+          summary.savedSeconds > 0 ? (
+            <span className="steps-card-hero-saved">
+              (일반 루트보다 약 {formatDurationText(summary.savedSeconds)} 단축!)
+            </span>
+          ) : (
+            <span className="steps-card-hero-meta">
+              {summary.totalKcal} kcal · 실내 층변경 {summary.floorChanges}회
+              {summary.usesRoad ? ' · 차도포함' : ''}
+            </span>
           )}
         </div>
+      ) : (
+        <>
+          <div className="steps-sheet-header">
+            <div className="steps-sheet-meta">
+              <strong>
+                소요 시간: {formatDurationText(summary.totalSeconds)} ({steps.length}단계)
+              </strong>
+              <span>
+                {summary.totalKcal} kcal · 실내 층변경 {summary.floorChanges}회
+                {summary.usesRoad ? ' · 차도포함' : ''}
+              </span>
+            </div>
+            {onCloseSheet && (
+              <button
+                type="button"
+                className="route-steps-toggle"
+                onClick={onCloseSheet}
+                aria-expanded="true"
+              >
+                접기 ▾
+              </button>
+            )}
+          </div>
+
+          {summary.usesShortcut && (
+            <div className="shortcut-highlight-banner">
+              <strong>
+                <Icon name="bolt" size={14} /> 학교 지름길 포함 경로
+              </strong>
+              {summary.savedSeconds !== null && summary.savedSeconds > 0 && (
+                <span>
+                  일반 루트보다 {formatDurationText(summary.savedSeconds)} 단축!
+                </span>
+              )}
+            </div>
+          )}
+        </>
       )}
 
-      <ol className="steps-list">
-        {steps.map((step) => {
+      <ol className="steps-list steps-flow-list">
+        {steps.map((step, idx) => {
           const isActive = activeStepIndex === step.index;
           return (
-            <li key={step.index}>
+            <li key={step.index} className="step-flow-item">
               <button
                 type="button"
                 onClick={() => onSelectStep(step.index)}
@@ -76,10 +113,36 @@ export const ArtifactStepsPanel: React.FC<ArtifactStepsPanelProps> = ({
                   <div className="step-row-text">{step.text}</div>
                 </div>
               </button>
+              {idx < steps.length - 1 && (
+                <span className="step-flow-arrow" aria-hidden="true">
+                  ⌄
+                </span>
+              )}
             </li>
           );
         })}
       </ol>
+
+      {!isCard && onFeedback && (
+        <div className="steps-sheet-footer-actions">
+          <button
+            type="button"
+            className="artifact-aux-chip"
+            onClick={() => onFeedback('SHORTCUT')}
+          >
+            <Icon name="bolt" size={13} />
+            <span>지름길 제보</span>
+          </button>
+          <button
+            type="button"
+            className="artifact-aux-chip"
+            onClick={() => onFeedback('REPORT')}
+          >
+            <Icon name="flag" size={13} />
+            <span>길 오류 신고</span>
+          </button>
+        </div>
+      )}
     </div>
   );
 };

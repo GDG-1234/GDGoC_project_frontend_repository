@@ -286,9 +286,32 @@ export const GuideWorkspacePage: React.FC = () => {
   );
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] =
     useState<boolean>(false);
+  const [mapTab, setMapTab] = useState<'route' | 'shortcuts' | 'favorites'>(
+    'route'
+  );
+  const [isSidePanelCollapsed, setIsSidePanelCollapsed] =
+    useState<boolean>(false);
+  const [mapFeedbackToast, setMapFeedbackToast] = useState<string | null>(null);
 
   const requestIdRef = useRef(0);
   const swipeStartXRef = useRef<number | null>(null);
+  const toastTimerRef = useRef<number | null>(null);
+
+  const triggerMapFeedback = (kind: 'COMMUNITY' | 'SHORTCUT' | 'REPORT') => {
+    const msg =
+      kind === 'COMMUNITY'
+        ? '캠퍼스 커뮤니티 기능은 추후 업데이트로 준비 중이에요.'
+        : kind === 'SHORTCUT'
+        ? '나만의 지름길 제보 기능은 추후 업데이트로 오픈될 예정이에요.'
+        : '문의사항 · 길 오류 신고 기능은 추후 업데이트로 연결될 예정이에요.';
+    setMapFeedbackToast(msg);
+    if (toastTimerRef.current !== null) {
+      window.clearTimeout(toastTimerRef.current);
+    }
+    toastTimerRef.current = window.setTimeout(() => {
+      setMapFeedbackToast(null);
+    }, 3200);
+  };
 
   const totalSteps = routeResult?.steps.length ?? 0;
   const safeStepIndex =
@@ -297,6 +320,15 @@ export const GuideWorkspacePage: React.FC = () => {
       : 0;
   const activeStep =
     routeResult && totalSteps > 0 ? routeResult.steps[safeStepIndex] : null;
+  const activeIndoorSegment =
+    routeResult && activeStep
+      ? routeResult.segments.find(
+          (seg) =>
+            seg.index === activeStep.segmentIndex &&
+            seg.indoor &&
+            Boolean(seg.floorImageUrl)
+        ) ?? null
+      : null;
 
   const moveActiveStep = (nextIndex: number) => {
     if (totalSteps === 0) return;
@@ -527,6 +559,9 @@ export const GuideWorkspacePage: React.FC = () => {
     setActiveSection('map');
     setArtifactTitle(`${from.name} → ${to.name}`);
     setIsStepsSheetOpen(false);
+    setIsSidePanelCollapsed(false);
+    setIsSearchOpen(false);
+    setMapTab('route');
     setActiveArtifactId(artifactId);
     setArtifactError(null);
     setArtifact('map');
@@ -941,6 +976,18 @@ export const GuideWorkspacePage: React.FC = () => {
       return;
     }
 
+    if (section === 'cafeteria') {
+      void handleSendMessage('오늘 학생식당 점심 메뉴 알려줘');
+      return;
+    }
+
+    if (section === 'timetable') {
+      setActiveCards([]);
+      setActiveCardsTitle('내 시간표 · 다음 수업 길안내 (예정)');
+      setArtifact('notice');
+      return;
+    }
+
     if (section === 'notice') {
       setActiveCards([]);
       setActiveCardsTitle(undefined);
@@ -949,10 +996,19 @@ export const GuideWorkspacePage: React.FC = () => {
     }
 
     setIsStepsSheetOpen(false);
-    if (section === 'saved') {
+    if (section === 'shortcuts') {
+      setMapTab('shortcuts');
+      setArtifactTitle('캠퍼스 지름길 모음');
+      setIsSearchOpen(false);
+    } else if (section === 'saved') {
+      setMapTab('route');
       if (!selectedBuilding) setArtifactTitle('건물 · 편의시설 지도');
-    } else if (!routeResult) {
-      setArtifactTitle('동국대 2D 캠퍼스 지도');
+      setIsSearchOpen(false);
+    } else {
+      setMapTab('route');
+      if (!routeResult) {
+        setArtifactTitle('동국대 2D 캠퍼스 지도');
+      }
     }
     setArtifact('map');
   };
@@ -1032,6 +1088,7 @@ export const GuideWorkspacePage: React.FC = () => {
     try {
       const detail = await fetchBuildingDetail(buildingId);
       setSelectedBuilding(detail);
+      setIsSidePanelCollapsed(false);
       if (!routeResult) {
         setArtifactTitle(`${detail.name} 정보`);
       }
@@ -1190,7 +1247,7 @@ export const GuideWorkspacePage: React.FC = () => {
       />
 
       {artifact === 'map' && (
-        <aside className="artifact" aria-label="캠퍼스 지도 및 길안내 아티팩트">
+        <aside className="artifact artifact-map" aria-label="캠퍼스 지도 및 길안내 아티팩트">
           <header className="artifact-header">
             <div>
               <h2>{artifactTitle}</h2>
@@ -1223,228 +1280,599 @@ export const GuideWorkspacePage: React.FC = () => {
             </div>
           </header>
 
-          {isSearchOpen && (
-            <ArtifactRouteSearchBar
-              fromPlace={fromPlace}
-              toPlace={toPlace}
-              onSelectFrom={(place) => void applyEndpointSelection(place, 'FROM')}
-              onSelectTo={(place) => void applyEndpointSelection(place, 'TO')}
-              onSwapPlaces={() => void handleSwapPlaces()}
-            />
-          )}
-
-          <div className="artifact-pick-bar">
-            <span>
-              {mapPickTarget
-                ? `지도를 클릭하면 ${
-                    mapPickTarget === 'FROM' ? '출발지' : '도착지'
-                  }가 지정됩니다.`
-                : '지도에서 건물을 누르거나 출발·도착을 찍어보세요.'}
-            </span>
-            <div className="artifact-pick-buttons">
-              <button
-                type="button"
-                className={
-                  mapPickTarget === 'FROM' ? 'pick-pill active' : 'pick-pill'
-                }
-                onClick={() =>
-                  setMapPickTarget(mapPickTarget === 'FROM' ? null : 'FROM')
-                }
-              >
-                출발 찍기
-              </button>
-              <button
-                type="button"
-                className={
-                  mapPickTarget === 'TO' ? 'pick-pill active' : 'pick-pill'
-                }
-                onClick={() =>
-                  setMapPickTarget(mapPickTarget === 'TO' ? null : 'TO')
-                }
-              >
-                도착 찍기
-              </button>
-            </div>
+          <div className="artifact-map-tabs" role="tablist" aria-label="지도 기능 탭">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mapTab === 'route'}
+              className={mapTab === 'route' ? 'map-tab-btn active' : 'map-tab-btn'}
+              onClick={() => setMapTab('route')}
+            >
+              경로 찾기
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mapTab === 'shortcuts'}
+              className={
+                mapTab === 'shortcuts' ? 'map-tab-btn active' : 'map-tab-btn'
+              }
+              onClick={() => setMapTab('shortcuts')}
+            >
+              <Icon name="bolt" size={13} />
+              <span>지름길</span>
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mapTab === 'favorites'}
+              className={
+                mapTab === 'favorites' ? 'map-tab-btn active' : 'map-tab-btn'
+              }
+              onClick={() => setMapTab('favorites')}
+            >
+              <Icon name="bookmark" size={13} />
+              <span>즐겨찾기</span>
+            </button>
           </div>
 
-          {(hasServerError || artifactError) && (
-            <div className="artifact-error-banner" role="alert">
-              <div className="artifact-error-copy">
+          {mapFeedbackToast && (
+            <div className="artifact-toast" role="status">
+              {mapFeedbackToast}
+            </div>
+          )}
+
+          {mapTab === 'shortcuts' && (
+            <div className="artifact-subpanel">
+              <div className="subpanel-banner">
                 <strong>
-                  {artifactError || '실서버(/api/v1)에 연결할 수 없습니다.'}
+                  <Icon name="bolt" size={15} /> 캠퍼스 지름길 모음 (준비 중)
                 </strong>
-                {hasServerError && !useMock && (
-                  <span>
-                    서버 상태와 localhost:5173 접속을 확인하거나 Mock으로 미리 볼
-                    수 있어요.
-                  </span>
-                )}
+                <p>
+                  실내·엘리베이터 지름길 데이터가 추가되면 이곳에서 바로 탐색할 수
+                  있어요. 지금은 추천 경로를 바로 실행해 보세요.
+                </p>
               </div>
-              <div className="artifact-error-actions">
+              <div className="subpanel-cards">
+                {[
+                  {
+                    tag: '인기 실내 이동',
+                    title: '혜화관 → 신공학관 3층',
+                    meta: '실내 엘리베이터 연계 추천 경로',
+                    prompt: '혜화관에서 신공학관 3층까지 길 알려줘',
+                  },
+                  {
+                    tag: '역 방면 진입',
+                    title: '동대입구 방향 입구 → 문화관 B1층',
+                    meta: '지하 단면도 포함 캠퍼스 진입 경로',
+                    prompt: '동대입구 방향 입구에서 문화관 B1층 가는 길',
+                  },
+                  {
+                    tag: '학식 이동',
+                    title: '정문 → 상록원',
+                    meta: '학생식당 빠른 길 안내',
+                    prompt: '정문에서 상록원 가는 길 알려줘',
+                  },
+                ].map((preset) => (
+                  <button
+                    key={preset.title}
+                    type="button"
+                    className="subpanel-preset-card"
+                    onClick={() => {
+                      setMapTab('route');
+                      void handleSendMessage(preset.prompt);
+                    }}
+                  >
+                    <span>
+                      <b>{preset.tag}</b>
+                      <strong>{preset.title}</strong>
+                      <small>{preset.meta}</small>
+                    </span>
+                    <Icon name="arrow" size={16} />
+                  </button>
+                ))}
+              </div>
+              <div className="subpanel-footer">
                 <button
                   type="button"
-                  className="retry-btn"
-                  onClick={() => void loadMapAndBuildings()}
+                  className="artifact-aux-chip"
+                  onClick={() => triggerMapFeedback('SHORTCUT')}
                 >
-                  다시 연결
+                  <Icon name="bolt" size={13} />
+                  <span>나만의 지름길 자랑하기</span>
                 </button>
-                {!useMock && (
-                  <button
-                    type="button"
-                    className="fallback-mock-btn"
-                    onClick={handleFallbackToMock}
-                  >
-                    Mock 데이터로 보기
-                  </button>
-                )}
               </div>
             </div>
           )}
 
-          <div className="artifact-map-wrap">
-            <Map2DViewer
-              mapInfo={mapInfo}
-              buildings={buildings}
-              landmarks={landmarks}
-              fromPlace={fromPlace}
-              toPlace={toPlace}
-              routeResult={routeResult}
-              activeStepIndex={activeStepIndex}
-              mapPickTarget={mapPickTarget}
-              selectedBuildingId={selectedBuilding?.id ?? null}
-              onMapPixelClick={handleMapPixelClick}
-              onSelectStep={(idx) => setActiveStepIndex(idx)}
-              onSelectBuilding={handleSelectBuildingOnMap}
-            />
-          </div>
+          {mapTab === 'favorites' && (
+            <div className="artifact-subpanel">
+              <div className="subpanel-banner">
+                <strong>
+                  <Icon name="bookmark" size={15} /> 즐겨찾기 · 다음 수업 연동 (예정)
+                </strong>
+                <p>
+                  자주 가는 장소 저장과 시간표 기반 다음 수업 길안내가 연결될
+                  공간이에요. 주요 건물을 눌러 상세 정보를 먼저 볼 수 있습니다.
+                </p>
+              </div>
+              <div className="subpanel-cards">
+                {(buildings.length > 0
+                  ? buildings.slice(0, 5)
+                  : [
+                      { id: 1, name: '신공학관' },
+                      { id: 2, name: '중앙도서관' },
+                      { id: 3, name: '혜화관' },
+                    ]
+                ).map((b) => (
+                  <button
+                    key={b.id}
+                    type="button"
+                    className="subpanel-preset-card"
+                    onClick={() => {
+                      setMapTab('route');
+                      void handleSelectBuildingOnMap(b.id);
+                    }}
+                  >
+                    <span>
+                      <b>주요 건물</b>
+                      <strong>{b.name}</strong>
+                      <small>지도에서 위치 · 층별 안내 보기</small>
+                    </span>
+                    <Icon name="arrow" size={16} />
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
-          {selectedBuilding ? (
-            <BuildingDetailPanel
-              building={selectedBuilding}
-              onClose={() => setSelectedBuilding(null)}
-              onSetAsFrom={(id, name) =>
-                handleSetBuildingAsEndpoint(id, name, 'FROM')
-              }
-              onSetAsTo={(id, name) =>
-                handleSetBuildingAsEndpoint(id, name, 'TO')
-              }
-            />
-          ) : routeResult && fromPlace && toPlace ? (
-            isStepsSheetOpen ? (
-              <div className="route-steps-sheet">
-                <ArtifactStepsPanel
-                  routeResult={routeResult}
-                  activeStepIndex={safeStepIndex}
-                  onSelectStep={(idx) => setActiveStepIndex(idx)}
-                  onCloseSheet={() => setIsStepsSheetOpen(false)}
+          {mapTab === 'route' && (
+            <div className="artifact-map-stage">
+              <div
+                className={
+                  isSearchOpen
+                    ? 'artifact-search-slot is-open'
+                    : 'artifact-search-slot'
+                }
+              >
+                <ArtifactRouteSearchBar
+                  fromPlace={fromPlace}
+                  toPlace={toPlace}
+                  isLoading={isLoading}
+                  onSelectFrom={(place) =>
+                    void applyEndpointSelection(place, 'FROM')
+                  }
+                  onSelectTo={(place) =>
+                    void applyEndpointSelection(place, 'TO')
+                  }
+                  onSwapPlaces={() => void handleSwapPlaces()}
+                  onFindRoute={() => {
+                    if (fromPlace && toPlace) {
+                      void runRouteAndAnnounce(
+                        fromPlace,
+                        toPlace,
+                        mode,
+                        avoidRoad
+                      );
+                    }
+                  }}
                 />
               </div>
-            ) : (
-              <div className="route-summary">
-                <div
-                  className="route-step-carousel"
-                  tabIndex={0}
-                  onKeyDown={(e) => {
-                    if (e.key === 'ArrowLeft') moveActiveStep(safeStepIndex - 1);
-                    if (e.key === 'ArrowRight') moveActiveStep(safeStepIndex + 1);
-                  }}
-                  onPointerDown={(e) => {
-                    swipeStartXRef.current = e.clientX;
-                  }}
-                  onPointerUp={(e) => {
-                    if (swipeStartXRef.current === null) return;
-                    const delta = e.clientX - swipeStartXRef.current;
-                    swipeStartXRef.current = null;
-                    if (Math.abs(delta) < 36) return;
-                    moveActiveStep(delta < 0 ? safeStepIndex + 1 : safeStepIndex - 1);
-                  }}
-                  onPointerCancel={() => {
-                    swipeStartXRef.current = null;
-                  }}
-                >
-                  <button
-                    type="button"
-                    className="carousel-arrow-btn carousel-arrow-btn-prev"
-                    disabled={safeStepIndex <= 0}
-                    onClick={() => moveActiveStep(safeStepIndex - 1)}
-                    aria-label="이전 이동 단계"
-                  >
-                    <Icon name="arrow" size={19} strokeWidth={2.5} />
-                  </button>
 
-                  <div className="route-title route-step-card-body">
-                    <span className="route-number">
-                      {String(safeStepIndex + 1).padStart(2, '0')}
+              {(hasServerError || artifactError) && (
+                <div className="artifact-error-banner" role="alert">
+                  <div className="artifact-error-copy">
+                    <strong>
+                      {artifactError || '실서버(/api/v1)에 연결할 수 없습니다.'}
+                    </strong>
+                    {hasServerError && !useMock && (
+                      <span>
+                        서버 상태와 localhost:5173 접속을 확인하거나 Mock으로 미리 볼
+                        수 있어요.
+                      </span>
+                    )}
+                  </div>
+                  <div className="artifact-error-actions">
+                    <button
+                      type="button"
+                      className="retry-btn"
+                      onClick={() => void loadMapAndBuildings()}
+                    >
+                      다시 연결
+                    </button>
+                    {!useMock && (
+                      <button
+                        type="button"
+                        className="fallback-mock-btn"
+                        onClick={handleFallbackToMock}
+                      >
+                        Mock 데이터로 보기
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              <div
+                className={
+                  isSidePanelCollapsed
+                    ? 'artifact-map-workspace side-collapsed'
+                    : 'artifact-map-workspace'
+                }
+              >
+                <section className="artifact-map-card" aria-label="캠퍼스 지도">
+                  <div className="artifact-pick-bar">
+                    <span className="map-card-label">
+                      <Icon name="map" size={14} />
+                      <span>
+                        {mapPickTarget
+                          ? `지도를 클릭하면 ${
+                              mapPickTarget === 'FROM' ? '출발지' : '도착지'
+                            }가 지정됩니다.`
+                          : routeResult
+                          ? '경로가 표시된 캠퍼스 지도'
+                          : '지도에서 건물을 누르거나 출발·도착을 찍어보세요.'}
+                      </span>
                     </span>
-                    <div>
-                      <strong>
-                        {activeStep
-                          ? activeStep.text
-                          : `${fromPlace.name}에서 ${toPlace.name}까지`}
-                      </strong>
-                      <p>
-                        {activeStep
-                          ? `${formatStepActionLabel(activeStep.action)} · ${formatFloorLabel(
-                              activeStep.floor
-                            )}${
-                              activeStep.seconds
-                                ? ` · ${formatDurationText(activeStep.seconds)}`
-                                : ''
-                            } · ${safeStepIndex + 1}/${totalSteps}`
-                          : mode === 'EASIEST'
-                          ? '칼로리가 적게 드는 편한 경로'
-                          : '가장 빠른 추천 경로'}
-                      </p>
+                    <div className="artifact-pick-buttons">
+                      <button
+                        type="button"
+                        className={
+                          mapPickTarget === 'FROM' ? 'pick-pill active' : 'pick-pill'
+                        }
+                        onClick={() =>
+                          setMapPickTarget(mapPickTarget === 'FROM' ? null : 'FROM')
+                        }
+                      >
+                        출발 찍기
+                      </button>
+                      <button
+                        type="button"
+                        className={
+                          mapPickTarget === 'TO' ? 'pick-pill active' : 'pick-pill'
+                        }
+                        onClick={() =>
+                          setMapPickTarget(mapPickTarget === 'TO' ? null : 'TO')
+                        }
+                      >
+                        도착 찍기
+                      </button>
+                      <button
+                        type="button"
+                        className={
+                          isSidePanelCollapsed
+                            ? 'pick-pill side-panel-toggle-btn active'
+                            : 'pick-pill side-panel-toggle-btn'
+                        }
+                        onClick={() => setIsSidePanelCollapsed((prev) => !prev)}
+                        aria-expanded={!isSidePanelCollapsed}
+                        title={
+                          isSidePanelCollapsed
+                            ? '우측 경로 안내 패널 열기'
+                            : '우측 경로 안내 패널 접기'
+                        }
+                      >
+                        {isSidePanelCollapsed
+                          ? selectedBuilding
+                            ? '건물 정보 열기'
+                            : '경로 안내 열기'
+                          : '안내 접기'}
+                      </button>
                     </div>
                   </div>
 
-                  <button
-                    type="button"
-                    className="carousel-arrow-btn"
-                    disabled={safeStepIndex >= totalSteps - 1}
-                    onClick={() => moveActiveStep(safeStepIndex + 1)}
-                    aria-label="다음 이동 단계"
-                  >
-                    <Icon name="arrow" size={19} strokeWidth={2.5} />
-                  </button>
-                </div>
+                  <div className="artifact-map-wrap">
+                    <div className="mobile-map-pick-chips" aria-label="지도 직접 찍기">
+                      <button
+                        type="button"
+                        className={
+                          mapPickTarget === 'FROM' ? 'pick-pill active' : 'pick-pill'
+                        }
+                        onClick={() =>
+                          setMapPickTarget(mapPickTarget === 'FROM' ? null : 'FROM')
+                        }
+                      >
+                        출발 찍기
+                      </button>
+                      <button
+                        type="button"
+                        className={
+                          mapPickTarget === 'TO' ? 'pick-pill active' : 'pick-pill'
+                        }
+                        onClick={() =>
+                          setMapPickTarget(mapPickTarget === 'TO' ? null : 'TO')
+                        }
+                      >
+                        도착 찍기
+                      </button>
+                    </div>
 
-                <div className="route-meta">
-                  <span>
-                    <Icon name="walk" size={17} /> {routeResult.summary.totalKcal} kcal
-                  </span>
-                  <span>
-                    <Icon name="clock" size={17} />{' '}
-                    {formatDurationText(routeResult.summary.totalSeconds)}
-                  </span>
-                  <span>
-                    {routeResult.summary.usesShortcut &&
-                    routeResult.summary.savedSeconds
-                      ? `★ ${formatDurationText(
-                          routeResult.summary.savedSeconds
-                        )} 단축`
-                      : routeResult.summary.floorChanges > 0
-                      ? `실내 이동 ${routeResult.summary.floorChanges}회`
-                      : '실외 이동'}
-                  </span>
-                </div>
+                    <Map2DViewer
+                      mapInfo={mapInfo}
+                      buildings={buildings}
+                      landmarks={landmarks}
+                      fromPlace={fromPlace}
+                      toPlace={toPlace}
+                      routeResult={routeResult}
+                      activeStepIndex={activeStepIndex}
+                      mapPickTarget={mapPickTarget}
+                      selectedBuildingId={selectedBuilding?.id ?? null}
+                      onMapPixelClick={handleMapPixelClick}
+                      onSelectStep={(idx) => setActiveStepIndex(idx)}
+                      onSelectBuilding={handleSelectBuildingOnMap}
+                    />
 
+                    {activeIndoorSegment && activeIndoorSegment.floorImageUrl && (
+                      <div className="indoor-pip-card">
+                        <span className="indoor-pip-badge">
+                          {formatFloorLabel(activeIndoorSegment.floor)} 건물 내부 경로 약도
+                        </span>
+                        <img
+                          src={activeIndoorSegment.floorImageUrl}
+                          alt={`${formatFloorLabel(activeIndoorSegment.floor)} 실내 단면도`}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </section>
+
+                <section className="artifact-side-column" aria-label="경로 단계 및 건물 정보">
+                  <div className="side-column-topbar">
+                    <span>{selectedBuilding ? '건물 상세' : '경로 안내'}</span>
+                    <button
+                      type="button"
+                      className="side-column-collapse-btn"
+                      onClick={() => setIsSidePanelCollapsed(true)}
+                      aria-label="우측 경로 안내 패널 접기"
+                      title="지도 넓게 보기 (패널 접기)"
+                    >
+                      접기
+                    </button>
+                  </div>
+                  <div className="side-column-body">
+                    {selectedBuilding ? (
+                    <BuildingDetailPanel
+                      building={selectedBuilding}
+                      onClose={() => setSelectedBuilding(null)}
+                      onSetAsFrom={(id, name) =>
+                        handleSetBuildingAsEndpoint(id, name, 'FROM')
+                      }
+                      onSetAsTo={(id, name) =>
+                        handleSetBuildingAsEndpoint(id, name, 'TO')
+                      }
+                    />
+                  ) : routeResult && fromPlace && toPlace ? (
+                    <ArtifactStepsPanel
+                      variant="card"
+                      routeResult={routeResult}
+                      activeStepIndex={safeStepIndex}
+                      onSelectStep={(idx) => setActiveStepIndex(idx)}
+                    />
+                  ) : (
+                    <div className="steps-card-idle">
+                      <div className="steps-card-hero">
+                        <div className="steps-card-hero-title">
+                          <Icon name="flag" size={16} />
+                          <strong>경로 단계 안내</strong>
+                        </div>
+                        <span className="steps-card-hero-meta">
+                          상단 검색 바에서 출발·도착지를 고르거나 아래 추천 경로를 눌러보세요.
+                        </span>
+                      </div>
+                      <div className="steps-idle-presets">
+                        {[
+                          {
+                            label: '혜화관 → 신공학관 3층',
+                            prompt: '혜화관에서 신공학관 3층까지 길 알려줘',
+                          },
+                          {
+                            label: '동대입구 → 문화관 B1층',
+                            prompt: '동대입구 방향 입구에서 문화관 B1층 가는 길',
+                          },
+                          {
+                            label: '정문 → 상록원',
+                            prompt: '정문에서 상록원 가는 길 알려줘',
+                          },
+                        ].map((preset) => (
+                          <button
+                            key={preset.label}
+                            type="button"
+                            className="steps-idle-preset-btn"
+                            onClick={() => void handleSendMessage(preset.prompt)}
+                          >
+                            <span>{preset.label}</span>
+                            <Icon name="arrow" size={14} />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  </div>
+                </section>
+              </div>
+
+              <div className="artifact-bottom-actions" aria-label="캠퍼스 보조 기능">
                 <button
                   type="button"
-                  className="primary-button"
-                  onClick={() => setIsStepsSheetOpen(true)}
-                  aria-expanded="false"
+                  className="mockup-pill-btn"
+                  onClick={() => triggerMapFeedback('COMMUNITY')}
                 >
-                  단계별 안내 보기 ({totalSteps}단계) ▴
+                  <Icon name="chat" size={15} />
+                  <span>커뮤니티 이용하기</span>
+                </button>
+                <button
+                  type="button"
+                  className="mockup-pill-btn"
+                  onClick={() => triggerMapFeedback('SHORTCUT')}
+                >
+                  <Icon name="bolt" size={15} />
+                  <span>나만의 지름길 자랑하기</span>
+                </button>
+                <button
+                  type="button"
+                  className="mockup-pill-btn mockup-pill-btn-soft"
+                  onClick={() => triggerMapFeedback('REPORT')}
+                >
+                  <Icon name="flag" size={15} />
+                  <span>문의사항 남기기</span>
                 </button>
               </div>
-            )
-          ) : (
-            <div className="route-summary route-summary-idle">
-              <p>
-                지도 위 건물을 선택해 상세 정보를 확인하거나, 대화창에 출발·도착지를
-                입력해 경로를 띄워보세요.
-              </p>
+
+              <div className="artifact-compact-bottom">
+                {selectedBuilding ? (
+                  <BuildingDetailPanel
+                    building={selectedBuilding}
+                    onClose={() => setSelectedBuilding(null)}
+                    onSetAsFrom={(id, name) =>
+                      handleSetBuildingAsEndpoint(id, name, 'FROM')
+                    }
+                    onSetAsTo={(id, name) =>
+                      handleSetBuildingAsEndpoint(id, name, 'TO')
+                    }
+                  />
+                ) : routeResult && fromPlace && toPlace ? (
+                  isStepsSheetOpen ? (
+                    <div className="route-steps-sheet">
+                      <ArtifactStepsPanel
+                        variant="sheet"
+                        routeResult={routeResult}
+                        activeStepIndex={safeStepIndex}
+                        onSelectStep={(idx) => setActiveStepIndex(idx)}
+                        onCloseSheet={() => setIsStepsSheetOpen(false)}
+                        onFeedback={triggerMapFeedback}
+                      />
+                    </div>
+                  ) : (
+                    <div className="route-summary">
+                      <div className="route-hero-bar">
+                        <span className="route-hero-time">
+                          <Icon name="clock" size={16} />
+                          <strong>
+                            소요 시간:{' '}
+                            {formatDurationText(routeResult.summary.totalSeconds)}
+                          </strong>
+                        </span>
+                        {routeResult.summary.usesShortcut &&
+                          routeResult.summary.savedSeconds &&
+                          routeResult.summary.savedSeconds > 0 && (
+                            <span className="route-hero-saved">
+                              일반 루트보다{' '}
+                              {formatDurationText(
+                                routeResult.summary.savedSeconds
+                              )}{' '}
+                              단축!
+                            </span>
+                          )}
+                      </div>
+
+                      <div
+                        className="route-step-carousel"
+                        tabIndex={0}
+                        onKeyDown={(e) => {
+                          if (e.key === 'ArrowLeft')
+                            moveActiveStep(safeStepIndex - 1);
+                          if (e.key === 'ArrowRight')
+                            moveActiveStep(safeStepIndex + 1);
+                        }}
+                        onPointerDown={(e) => {
+                          swipeStartXRef.current = e.clientX;
+                        }}
+                        onPointerUp={(e) => {
+                          if (swipeStartXRef.current === null) return;
+                          const delta = e.clientX - swipeStartXRef.current;
+                          swipeStartXRef.current = null;
+                          if (Math.abs(delta) < 36) return;
+                          moveActiveStep(
+                            delta < 0 ? safeStepIndex + 1 : safeStepIndex - 1
+                          );
+                        }}
+                        onPointerCancel={() => {
+                          swipeStartXRef.current = null;
+                        }}
+                      >
+                        <button
+                          type="button"
+                          className="carousel-arrow-btn carousel-arrow-btn-prev"
+                          disabled={safeStepIndex <= 0}
+                          onClick={() => moveActiveStep(safeStepIndex - 1)}
+                          aria-label="이전 이동 단계"
+                        >
+                          <Icon name="arrow" size={19} strokeWidth={2.5} />
+                        </button>
+
+                        <div className="route-title route-step-card-body">
+                          <span className="route-number">
+                            {String(safeStepIndex + 1).padStart(2, '0')}
+                          </span>
+                          <div>
+                            <strong>
+                              {activeStep
+                                ? activeStep.text
+                                : `${fromPlace.name}에서 ${toPlace.name}까지`}
+                            </strong>
+                            <p>
+                              {activeStep
+                                ? `${formatStepActionLabel(
+                                    activeStep.action
+                                  )} · ${formatFloorLabel(activeStep.floor)}${
+                                    activeStep.seconds
+                                      ? ` · ${formatDurationText(
+                                          activeStep.seconds
+                                        )}`
+                                      : ''
+                                  } · ${safeStepIndex + 1}/${totalSteps}`
+                                : mode === 'EASIEST'
+                                ? '칼로리가 적게 드는 편한 경로'
+                                : '가장 빠른 추천 경로'}
+                            </p>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          className="carousel-arrow-btn"
+                          disabled={safeStepIndex >= totalSteps - 1}
+                          onClick={() => moveActiveStep(safeStepIndex + 1)}
+                          aria-label="다음 이동 단계"
+                        >
+                          <Icon name="arrow" size={19} strokeWidth={2.5} />
+                        </button>
+                      </div>
+
+                      <div className="route-meta">
+                        <span>
+                          <Icon name="walk" size={17} />{' '}
+                          {routeResult.summary.totalKcal} kcal
+                        </span>
+                        <span>
+                          {routeResult.summary.floorChanges > 0
+                            ? `실내 이동 ${routeResult.summary.floorChanges}회`
+                            : '실외 이동'}
+                        </span>
+                        <span>
+                          {routeResult.summary.usesRoad ? '차도 포함' : '차도 제외'}
+                        </span>
+                      </div>
+
+                      <button
+                        type="button"
+                        className="primary-button"
+                        onClick={() => setIsStepsSheetOpen(true)}
+                        aria-expanded="false"
+                      >
+                        단계별 안내 보기 ({totalSteps}단계) ▴
+                      </button>
+                    </div>
+                  )
+                ) : (
+                  <div className="route-summary route-summary-idle">
+                    <p>
+                      지도 위 건물을 선택해 상세 정보를 확인하거나, 상단 검색 버튼으로
+                      출발·도착지를 입력해 경로를 띄워보세요.
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </aside>
