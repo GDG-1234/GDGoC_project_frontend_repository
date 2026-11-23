@@ -284,6 +284,8 @@ export const GuideWorkspacePage: React.FC = () => {
   const [activeCardsTitle, setActiveCardsTitle] = useState<string | undefined>(
     undefined
   );
+  const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] =
+    useState<boolean>(false);
 
   const requestIdRef = useRef(0);
   const swipeStartXRef = useRef<number | null>(null);
@@ -411,6 +413,7 @@ export const GuideWorkspacePage: React.FC = () => {
   };
 
   const handleSignOut = async () => {
+    setIsLogoutConfirmOpen(false);
     setAuthError(null);
     await signOutFirebase();
     setMessages([]);
@@ -421,6 +424,15 @@ export const GuideWorkspacePage: React.FC = () => {
     setArtifact(null);
     setActiveSection('chat');
   };
+
+  useEffect(() => {
+    if (!isLogoutConfirmOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsLogoutConfirmOpen(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isLogoutConfirmOpen]);
 
   const handleSelectConversation = async (convId: number) => {
     setIsLoading(true);
@@ -1088,7 +1100,7 @@ export const GuideWorkspacePage: React.FC = () => {
           onSelectConversation={(id) => void handleSelectConversation(id)}
           onDeleteConversation={(id) => void handleDeleteConversation(id)}
           onSignIn={() => void handleSignIn()}
-          onSignOut={() => void handleSignOut()}
+          onSignOut={() => setIsLogoutConfirmOpen(true)}
           onRetryLiveServer={handleRetryLiveServer}
         />
       </div>
@@ -1142,7 +1154,10 @@ export const GuideWorkspacePage: React.FC = () => {
             onSelectConversation={(id) => void handleSelectConversation(id)}
             onDeleteConversation={(id) => void handleDeleteConversation(id)}
             onSignIn={() => void handleSignIn()}
-            onSignOut={() => void handleSignOut()}
+            onSignOut={() => {
+              setMobileMenuOpen(false);
+              setIsLogoutConfirmOpen(true);
+            }}
             onRetryLiveServer={handleRetryLiveServer}
             onCloseMobile={() => setMobileMenuOpen(false)}
           />
@@ -1443,6 +1458,45 @@ export const GuideWorkspacePage: React.FC = () => {
           onClose={closeArtifact}
           onSelectPrompt={(prompt) => void handleSendMessage(prompt)}
         />
+      )}
+
+      {isLogoutConfirmOpen && (
+        <div
+          className="confirm-modal-backdrop"
+          role="presentation"
+          onClick={() => setIsLogoutConfirmOpen(false)}
+        >
+          <div
+            className="confirm-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="logout-modal-title"
+            aria-describedby="logout-modal-desc"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 id="logout-modal-title">로그아웃하시겠어요?</h3>
+            <p id="logout-modal-desc">
+              로그아웃하면 현재 대화 화면에서 나가며, 저장된 대화 기록을 보려면
+              Google 계정으로 다시 로그인해야 합니다.
+            </p>
+            <div className="confirm-modal-actions">
+              <button
+                type="button"
+                className="confirm-btn-cancel"
+                onClick={() => setIsLogoutConfirmOpen(false)}
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                className="confirm-btn-danger"
+                onClick={() => void handleSignOut()}
+              >
+                로그아웃
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
