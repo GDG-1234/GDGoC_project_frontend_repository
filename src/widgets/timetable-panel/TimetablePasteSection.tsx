@@ -104,8 +104,9 @@ export const TimetablePasteSection: React.FC<TimetablePasteSectionProps> = ({
 
       <p className="timetable-paste-guide">
         nDRIMS 로그인 → <b>수업/강의평가</b> → <b>개인강의 시간표조회</b> →{' '}
-        <b>톱니바퀴(설정)</b>에서 엑셀로 다운로드 후, 시간 열과 요일 칸을 함께
-        드래그해 복사·붙여넣기해 주세요.
+        <b>톱니바퀴(설정)</b>에서 엑셀로 다운로드한 뒤, 전체 선택(Ctrl+A)이나
+        과목 목록이 아니라 <b>09:00-09:30 시간 열과 월~금 요일 칸이 있는 격자형
+        시간표 영역만</b> 드래그해 복사·붙여넣기해 주세요.
       </p>
 
       {errorText && (
