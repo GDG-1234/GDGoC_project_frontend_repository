@@ -193,6 +193,19 @@ export const TimetablePanel: React.FC<TimetablePanelProps> = ({
     return arr;
   }, [startHour, endHour]);
 
+  const courseShadeMap = useMemo(() => {
+    const map = new Map<string, number>();
+    let idx = 0;
+    for (const c of courses) {
+      const key = c.name.trim();
+      if (!map.has(key)) {
+        map.set(key, idx % 6);
+        idx += 1;
+      }
+    }
+    return map;
+  }, [courses]);
+
   const sortedBuildingNames = useMemo(() => {
     const names = buildings.map((b) => b.name);
     if (form.buildingName && !names.includes(form.buildingName)) {
@@ -734,12 +747,13 @@ export const TimetablePanel: React.FC<TimetablePanelProps> = ({
                               28,
                               ((endMin - startMin) / 60) * HOUR_HEIGHT_PX - 2
                             );
-                            const badge = getLocationBadge(course);
+                            const shadeIdx =
+                              courseShadeMap.get(course.name.trim()) ?? 0;
                             return (
                               <button
                                 key={course.id ?? `${day}-${idx}`}
                                 type="button"
-                                className={`timetable-course-block tone-${badge.tone}`}
+                                className={`timetable-course-block shade-${shadeIdx}`}
                                 style={{ top: `${top}px`, height: `${height}px` }}
                                 onClick={() => openEditForm(course)}
                                 title={`${course.name} (${course.startTime}~${course.endTime}) · ${formatCourseRoom(course)}`}

@@ -2818,13 +2818,13 @@ button {
   right: 3px;
   border: 0;
   border-radius: 8px;
-  padding: 5px 6px;
+  padding: 6px 7px;
   text-align: left;
   display: flex;
   flex-direction: column;
   gap: 2px;
   overflow: hidden;
-  background: var(--orange-soft);
+  background: #f1f0ec;
   color: var(--ink);
   transition: transform 0.12s ease, box-shadow 0.12s ease;
 }
@@ -2835,19 +2835,28 @@ button {
   z-index: 2;
 }
 
-.timetable-course-block.tone-floor {
-  background: var(--orange-soft);
-  border-left: 3px solid var(--orange);
+.timetable-course-block.shade-0 {
+  background: #fff1e8;
 }
 
-.timetable-course-block.tone-building {
-  background: #f3f3f0;
-  border-left: 3px solid #222;
+.timetable-course-block.shade-1 {
+  background: #eef2f7;
 }
 
-.timetable-course-block.tone-none {
-  background: #f6f6f4;
-  border-left: 3px solid #bbb;
+.timetable-course-block.shade-2 {
+  background: #edf3ee;
+}
+
+.timetable-course-block.shade-3 {
+  background: #f8f2e4;
+}
+
+.timetable-course-block.shade-4 {
+  background: #f2eff6;
+}
+
+.timetable-course-block.shade-5 {
+  background: #efefec;
 }
 
 .timetable-block-name {
