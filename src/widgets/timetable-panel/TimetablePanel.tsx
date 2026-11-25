@@ -8,8 +8,14 @@ import {
   updateTimetableCourse,
 } from '../../shared/api/timetableApi';
 import { BuildingSummary } from '../../shared/types/api';
-import { Course, CourseInput, Day } from '../../shared/types/timetable';
+import {
+  Course,
+  CourseInput,
+  Day,
+  NextCourseResponse,
+} from '../../shared/types/timetable';
 import { Icon } from '../../shared/ui/Icon';
+import { NextCourseBanner } from './NextCourseBanner';
 import { TimetablePasteSection } from './TimetablePasteSection';
 
 export const DAY_ORDER: Day[] = [
@@ -92,6 +98,7 @@ interface TimetablePanelProps {
   buildings: BuildingSummary[];
   onSignIn: () => void;
   onClose: () => void;
+  onOpenRouteOnMap: (info: NextCourseResponse) => void;
 }
 
 export const TimetablePanel: React.FC<TimetablePanelProps> = ({
@@ -100,9 +107,11 @@ export const TimetablePanel: React.FC<TimetablePanelProps> = ({
   buildings,
   onSignIn,
   onClose,
+  onOpenRouteOnMap,
 }) => {
   const [courses, setCourses] = useState<Course[]>([]);
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
+  const [nextRefreshKey, setNextRefreshKey] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(false);
   const [saving, setSaving] = useState<boolean>(false);
   const [errorText, setErrorText] = useState<string | null>(null);
@@ -134,6 +143,7 @@ export const TimetablePanel: React.FC<TimetablePanelProps> = ({
       const res = await fetchMyTimetable();
       setCourses(res.courses);
       setUpdatedAt(res.updatedAt);
+      setNextRefreshKey((k) => k + 1);
     } catch (err) {
       setErrorText(
         err instanceof TimetableApiError
@@ -404,6 +414,12 @@ export const TimetablePanel: React.FC<TimetablePanelProps> = ({
                 </button>
               </div>
             )}
+
+            <NextCourseBanner
+              refreshKey={nextRefreshKey}
+              hasCourses={courses.length > 0}
+              onOpenRouteOnMap={onOpenRouteOnMap}
+            />
 
             {isPasteOpen && (
               <TimetablePasteSection

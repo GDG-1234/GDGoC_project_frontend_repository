@@ -48,6 +48,7 @@ import {
   MessageResponse,
   UserResponse,
 } from '../shared/types/portal';
+import { NextCourseResponse } from '../shared/types/timetable';
 import { MapPickTarget } from '../shared/types/ui';
 import { Icon } from '../shared/ui/Icon';
 import { ArtifactRouteSearchBar } from '../widgets/artifact-search/ArtifactRouteSearchBar';
@@ -71,6 +72,7 @@ import {
 import { TimetablePanel } from '../widgets/timetable-panel/TimetablePanel';
 
 const LIVE_SUGGESTIONS: PromptSuggestionItem[] = [
+  { label: '다음 수업 가는 길 알려줘', icon: 'calendar' },
   { label: '혜화관에서 신공학관 3층까지 길 알려줘', icon: 'map' },
   { label: '오늘 학생식당 점심 메뉴 알려줘', icon: 'bookmark' },
   { label: '이번 주 주요 학사 일정 확인하기', icon: 'notice' },
@@ -641,6 +643,12 @@ export const GuideWorkspacePage: React.FC = () => {
     const text = rawText.trim();
     if (!text) return;
 
+    // 다음 수업 길안내 빠른 진입 (시간표 API는 AI 없이 바로 동작)
+    if (text === '다음 수업 가는 길 알려줘') {
+      selectSection('timetable');
+      return;
+    }
+
     // 로그인 사용자는 백엔드 인증·채팅 API(/conversations)로 전송
     if (currentUser) {
       if (text.length > 2000) {
@@ -1077,6 +1085,56 @@ export const GuideWorkspacePage: React.FC = () => {
     }
   };
 
+  const handleOpenNextCourseRoute = (info: NextCourseResponse) => {
+    if (!info.route) return;
+    const { summary, segments } = info.route;
+    const firstSeg = segments[0];
+    const lastSeg = segments[segments.length - 1];
+    const firstPt = firstSeg?.points[0];
+    const lastPt = lastSeg?.points[lastSeg.points.length - 1];
+
+    const from: PlaceSummary = {
+      id: summary.from.id,
+      name: summary.from.name,
+      category: 'BUILDING',
+      buildingId: firstSeg?.buildingId ?? null,
+      buildingName: null,
+      floor: firstSeg?.floor ?? 0,
+      position: firstPt
+        ? { x: firstPt.x, y: firstPt.y }
+        : mapInfo.defaultCenter,
+    };
+    const to: PlaceSummary = {
+      id: summary.to.id,
+      name: summary.to.name,
+      category: 'BUILDING',
+      buildingId: info.next?.location?.buildingId ?? lastSeg?.buildingId ?? null,
+      buildingName: info.next?.location?.buildingName ?? null,
+      floor: info.next?.location?.floor ?? lastSeg?.floor ?? 0,
+      position: lastPt
+        ? { x: lastPt.x, y: lastPt.y }
+        : mapInfo.defaultCenter,
+    };
+
+    const artifactId = createId('artifact');
+    const title = info.next
+      ? `${info.next.name} (${summary.from.name} → ${summary.to.name})`
+      : `${summary.from.name} → ${summary.to.name}`;
+    const payload: ChatArtifactPayload = {
+      id: artifactId,
+      kind: 'ROUTE',
+      title,
+      fromPlace: from,
+      toPlace: to,
+      routeResult: info.route,
+      mode,
+      avoidRoad: false,
+    };
+    registerArtifact(payload);
+    applyRouteState(from, to, info.route, mode, false, artifactId);
+    setArtifactTitle(title);
+  };
+
   const closeArtifact = () => {
     setArtifact(null);
     setMapPickTarget(null);
@@ -1476,6 +1534,7 @@ export const GuideWorkspacePage: React.FC = () => {
           buildings={buildings}
           onSignIn={() => void handleSignIn()}
           onClose={closeArtifact}
+          onOpenRouteOnMap={handleOpenNextCourseRoute}
         />
       )}
 
