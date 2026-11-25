@@ -3002,6 +3002,15 @@ button {
 }
 
 @media (max-width: 760px) {
+  .timetable-artifact {
+    position: fixed;
+    top: 58px;
+    left: 0;
+    right: 0;
+    height: calc(100dvh - 58px);
+    z-index: 1300;
+  }
+
   .timetable-body {
     padding: 12px 14px 20px;
   }
