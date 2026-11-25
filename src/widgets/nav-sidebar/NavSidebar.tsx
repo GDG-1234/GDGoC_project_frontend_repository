@@ -2,7 +2,7 @@ import React from 'react';
 import { ConversationSummary, UserResponse } from '../../shared/types/portal';
 import { Icon, type IconName } from '../../shared/ui/Icon';
 
-export type NavSectionKey = 'chat' | 'map' | 'saved' | 'notice';
+export type NavSectionKey = 'chat' | 'map' | 'timetable' | 'saved' | 'notice';
 
 export interface SidebarHistoryItem {
   id: string;
@@ -35,6 +35,7 @@ const NAV_ITEMS: Array<{
 }> = [
   { id: 'chat', label: '새 채팅', icon: 'chat' },
   { id: 'map', label: '캠퍼스 길안내', icon: 'map' },
+  { id: 'timetable', label: '내 시간표', icon: 'calendar' },
   { id: 'saved', label: '건물 · 편의시설', icon: 'bookmark' },
   { id: 'notice', label: '학사 공지 · 일정', icon: 'notice' },
 ];

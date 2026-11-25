@@ -68,6 +68,7 @@ import {
   PortalArtifactPanel,
   PortalNoticeItem,
 } from '../widgets/portal-artifact/PortalArtifactPanel';
+import { TimetablePanel } from '../widgets/timetable-panel/TimetablePanel';
 
 const LIVE_SUGGESTIONS: PromptSuggestionItem[] = [
   { label: '혜화관에서 신공학관 3층까지 길 알려줘', icon: 'map' },
@@ -259,7 +260,9 @@ export const GuideWorkspacePage: React.FC = () => {
 
   // 챗봇·아티팩트 레이아웃 상태
   const [activeSection, setActiveSection] = useState<NavSectionKey>('chat');
-  const [artifact, setArtifact] = useState<'map' | 'notice' | null>(null);
+  const [artifact, setArtifact] = useState<
+    'map' | 'notice' | 'timetable' | null
+  >(null);
   const [isStepsSheetOpen, setIsStepsSheetOpen] = useState<boolean>(false);
   const [isSearchOpen, setIsSearchOpen] = useState<boolean>(false);
   const [artifactTitle, setArtifactTitle] = useState<string>('동국대 2D 캠퍼스 지도');
@@ -948,6 +951,12 @@ export const GuideWorkspacePage: React.FC = () => {
       return;
     }
 
+    if (section === 'timetable') {
+      setArtifactTitle('내 시간표');
+      setArtifact('timetable');
+      return;
+    }
+
     setIsStepsSheetOpen(false);
     if (section === 'saved') {
       if (!selectedBuilding) setArtifactTitle('건물 · 편의시설 지도');
@@ -1457,6 +1466,16 @@ export const GuideWorkspacePage: React.FC = () => {
           title={activeCardsTitle}
           onClose={closeArtifact}
           onSelectPrompt={(prompt) => void handleSendMessage(prompt)}
+        />
+      )}
+
+      {artifact === 'timetable' && (
+        <TimetablePanel
+          isAuthenticated={currentUser !== null}
+          authLoading={authLoading}
+          buildings={buildings}
+          onSignIn={() => void handleSignIn()}
+          onClose={closeArtifact}
         />
       )}
 
