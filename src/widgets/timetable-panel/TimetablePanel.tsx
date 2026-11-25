@@ -10,6 +10,7 @@ import {
 import { BuildingSummary } from '../../shared/types/api';
 import { Course, CourseInput, Day } from '../../shared/types/timetable';
 import { Icon } from '../../shared/ui/Icon';
+import { TimetablePasteSection } from './TimetablePasteSection';
 
 export const DAY_ORDER: Day[] = [
   'MON',
@@ -117,6 +118,7 @@ export const TimetablePanel: React.FC<TimetablePanelProps> = ({
 
   // 직접 입력 폼 (신규 추가 / 기존 수업 수정)
   const [isFormOpen, setIsFormOpen] = useState<boolean>(false);
+  const [isPasteOpen, setIsPasteOpen] = useState<boolean>(false);
   const [editingCourseId, setEditingCourseId] = useState<number | null>(null);
   const [form, setForm] = useState<CourseFormState>(EMPTY_FORM);
   const [formError, setFormError] = useState<string | null>(null);
@@ -190,14 +192,21 @@ export const TimetablePanel: React.FC<TimetablePanelProps> = ({
   }, [buildings, form.buildingName]);
 
   const openCreateForm = () => {
+    setIsPasteOpen(false);
     setEditingCourseId(null);
     setForm({ ...EMPTY_FORM, day: selectedDay });
     setFormError(null);
     setIsFormOpen(true);
   };
 
+  const openPastePanel = () => {
+    closeForm();
+    setIsPasteOpen((prev) => !prev);
+  };
+
   const openEditForm = (course: Course) => {
     if (course.id === null) return;
+    setIsPasteOpen(false);
     setEditingCourseId(course.id);
     setForm({
       name: course.name,
@@ -317,15 +326,35 @@ export const TimetablePanel: React.FC<TimetablePanelProps> = ({
         </div>
         <div className="artifact-header-actions">
           {isAuthenticated && (
-            <button
-              type="button"
-              className="header-search-toggle active"
-              onClick={openCreateForm}
-              disabled={saving}
-            >
-              <Icon name="plus" size={14} />
-              <span>수업 추가</span>
-            </button>
+            <>
+              <button
+                type="button"
+                className={
+                  isPasteOpen
+                    ? 'header-search-toggle active'
+                    : 'header-search-toggle'
+                }
+                onClick={openPastePanel}
+                disabled={saving}
+                title="nDRIMS 엑셀 붙여넣기"
+              >
+                <Icon name="paste" size={14} />
+                <span>엑셀</span>
+              </button>
+              <button
+                type="button"
+                className={
+                  isFormOpen
+                    ? 'header-search-toggle active'
+                    : 'header-search-toggle'
+                }
+                onClick={openCreateForm}
+                disabled={saving}
+              >
+                <Icon name="plus" size={14} />
+                <span>수업 추가</span>
+              </button>
+            </>
           )}
           <button
             type="button"
@@ -374,6 +403,14 @@ export const TimetablePanel: React.FC<TimetablePanelProps> = ({
                   다시 시도
                 </button>
               </div>
+            )}
+
+            {isPasteOpen && (
+              <TimetablePasteSection
+                existingCount={courses.length}
+                onSaved={loadTimetable}
+                onClose={() => setIsPasteOpen(false)}
+              />
             )}
 
             {isFormOpen && (
@@ -597,9 +634,28 @@ export const TimetablePanel: React.FC<TimetablePanelProps> = ({
               <div className="timetable-empty-state compact">
                 <h3>아직 등록된 수업이 없어요</h3>
                 <p>
-                  상단의 <strong>수업 추가</strong> 버튼으로 강의를 하나씩
-                  등록해 보세요.
+                  수업을 하나씩 직접 추가하거나, nDRIMS 시간표 엑셀을 복사해
+                  한 번에 불러올 수 있어요.
                 </p>
+                <div className="timetable-empty-actions">
+                  <button
+                    type="button"
+                    className="timetable-btn-primary"
+                    onClick={openCreateForm}
+                  >
+                    수업 직접 추가
+                  </button>
+                  <button
+                    type="button"
+                    className="timetable-btn-secondary"
+                    onClick={() => {
+                      closeForm();
+                      setIsPasteOpen(true);
+                    }}
+                  >
+                    nDRIMS 엑셀 붙여넣기
+                  </button>
+                </div>
               </div>
             ) : (
               <>
