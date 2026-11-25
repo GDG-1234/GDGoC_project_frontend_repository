@@ -33,6 +33,7 @@ import {
   PortalApiError,
   sendConversationMessage,
 } from '../shared/api/portalApi';
+import { fetchNextCourse } from '../shared/api/timetableApi';
 import { MOCK_MAP_INFO, MOCK_PLACES } from '../shared/data/mockApiV1Data';
 import {
   BuildingDetailResponse,
@@ -48,6 +49,7 @@ import {
   MessageResponse,
   UserResponse,
 } from '../shared/types/portal';
+import { NextCourseResponse } from '../shared/types/timetable';
 import { MapPickTarget } from '../shared/types/ui';
 import { Icon } from '../shared/ui/Icon';
 import { ArtifactRouteSearchBar } from '../widgets/artifact-search/ArtifactRouteSearchBar';
@@ -68,8 +70,10 @@ import {
   PortalArtifactPanel,
   PortalNoticeItem,
 } from '../widgets/portal-artifact/PortalArtifactPanel';
+import { TimetablePanel } from '../widgets/timetable-panel/TimetablePanel';
 
 const LIVE_SUGGESTIONS: PromptSuggestionItem[] = [
+  { label: '다음 수업 가는 길 알려줘', icon: 'calendar' },
   { label: '혜화관에서 신공학관 3층까지 길 알려줘', icon: 'map' },
   { label: '오늘 학생식당 점심 메뉴 알려줘', icon: 'bookmark' },
   { label: '이번 주 주요 학사 일정 확인하기', icon: 'notice' },
@@ -259,10 +263,13 @@ export const GuideWorkspacePage: React.FC = () => {
 
   // 챗봇·아티팩트 레이아웃 상태
   const [activeSection, setActiveSection] = useState<NavSectionKey>('chat');
-  const [artifact, setArtifact] = useState<'map' | 'notice' | null>(null);
+  const [artifact, setArtifact] = useState<
+    'map' | 'notice' | 'timetable' | null
+  >(null);
   const [isStepsSheetOpen, setIsStepsSheetOpen] = useState<boolean>(false);
   const [isSearchOpen, setIsSearchOpen] = useState<boolean>(false);
   const [artifactTitle, setArtifactTitle] = useState<string>('동국대 2D 캠퍼스 지도');
+  const [artifactSubtitle, setArtifactSubtitle] = useState<string | null>(null);
   const [activeArtifactId, setActiveArtifactId] = useState<string | null>(null);
   const [artifactError, setArtifactError] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
@@ -526,6 +533,7 @@ export const GuideWorkspacePage: React.FC = () => {
     setSelectedBuilding(null);
     setActiveSection('map');
     setArtifactTitle(`${from.name} → ${to.name}`);
+    setArtifactSubtitle(null);
     setIsStepsSheetOpen(false);
     setActiveArtifactId(artifactId);
     setArtifactError(null);
@@ -637,6 +645,38 @@ export const GuideWorkspacePage: React.FC = () => {
   const handleSendMessage = async (rawText: string) => {
     const text = rawText.trim();
     if (!text) return;
+
+    // 다음 수업 길안내 빠른 진입 (시간표 API는 AI 없이 바로 동작)
+    if (text === '다음 수업 가는 길 알려줘') {
+      if (!currentUser) {
+        selectSection('timetable');
+        return;
+      }
+      setIsLoading(true);
+      try {
+        const res = await fetchNextCourse({ mode });
+        if (res.route) {
+          const payload = handleOpenNextCourseRoute(res);
+          setMessages((prev) => [
+            ...prev,
+            { id: createId('msg-user'), role: 'user', text },
+            {
+              id: createId('msg-bot'),
+              role: 'assistant',
+              text: res.message,
+              artifact: payload ?? undefined,
+            },
+          ]);
+          return;
+        }
+      } catch {
+        // 실패 시 시간표 패널에서 재시도·안내
+      } finally {
+        setIsLoading(false);
+      }
+      selectSection('timetable');
+      return;
+    }
 
     // 로그인 사용자는 백엔드 인증·채팅 API(/conversations)로 전송
     if (currentUser) {
@@ -948,6 +988,12 @@ export const GuideWorkspacePage: React.FC = () => {
       return;
     }
 
+    if (section === 'timetable') {
+      setArtifactTitle('내 시간표');
+      setArtifact('timetable');
+      return;
+    }
+
     setIsStepsSheetOpen(false);
     if (section === 'saved') {
       if (!selectedBuilding) setArtifactTitle('건물 · 편의시설 지도');
@@ -1068,8 +1114,63 @@ export const GuideWorkspacePage: React.FC = () => {
     }
   };
 
+  const handleOpenNextCourseRoute = (
+    info: NextCourseResponse
+  ): ChatArtifactPayload | null => {
+    if (!info.route) return null;
+    const { summary, segments } = info.route;
+    const firstSeg = segments[0];
+    const lastSeg = segments[segments.length - 1];
+    const firstPt = firstSeg?.points[0];
+    const lastPt = lastSeg?.points[lastSeg.points.length - 1];
+
+    const from: PlaceSummary = {
+      id: summary.from.id,
+      name: summary.from.name,
+      category: 'BUILDING',
+      buildingId: firstSeg?.buildingId ?? null,
+      buildingName: null,
+      floor: firstSeg?.floor ?? 0,
+      position: firstPt
+        ? { x: firstPt.x, y: firstPt.y }
+        : mapInfo.defaultCenter,
+    };
+    const to: PlaceSummary = {
+      id: summary.to.id,
+      name: summary.to.name,
+      category: 'BUILDING',
+      buildingId: info.next?.location?.buildingId ?? lastSeg?.buildingId ?? null,
+      buildingName: info.next?.location?.buildingName ?? null,
+      floor: info.next?.location?.floor ?? lastSeg?.floor ?? 0,
+      position: lastPt
+        ? { x: lastPt.x, y: lastPt.y }
+        : mapInfo.defaultCenter,
+    };
+
+    const artifactId = createId('artifact');
+    const title = `${summary.from.name} → ${summary.to.name}`;
+    const payload: ChatArtifactPayload = {
+      id: artifactId,
+      kind: 'ROUTE',
+      title,
+      fromPlace: from,
+      toPlace: to,
+      routeResult: info.route,
+      mode,
+      avoidRoad: false,
+    };
+    registerArtifact(payload);
+    applyRouteState(from, to, info.route, mode, false, artifactId);
+    setArtifactTitle(title);
+    setArtifactSubtitle(
+      info.next ? `다음 수업 · ${info.next.name}` : '다음 수업 길안내'
+    );
+    return payload;
+  };
+
   const closeArtifact = () => {
     setArtifact(null);
+    setArtifactSubtitle(null);
     setMapPickTarget(null);
     setIsSearchOpen(false);
     setActiveSection('chat');
@@ -1192,7 +1293,12 @@ export const GuideWorkspacePage: React.FC = () => {
       {artifact === 'map' && (
         <aside className="artifact" aria-label="캠퍼스 지도 및 길안내 아티팩트">
           <header className="artifact-header">
-            <div>
+            <div className="artifact-header-title">
+              {artifactSubtitle && (
+                <span className="artifact-header-subtitle">
+                  {artifactSubtitle}
+                </span>
+              )}
               <h2>{artifactTitle}</h2>
             </div>
 
@@ -1457,6 +1563,17 @@ export const GuideWorkspacePage: React.FC = () => {
           title={activeCardsTitle}
           onClose={closeArtifact}
           onSelectPrompt={(prompt) => void handleSendMessage(prompt)}
+        />
+      )}
+
+      {artifact === 'timetable' && (
+        <TimetablePanel
+          isAuthenticated={currentUser !== null}
+          authLoading={authLoading}
+          buildings={buildings}
+          onSignIn={() => void handleSignIn()}
+          onClose={closeArtifact}
+          onOpenRouteOnMap={handleOpenNextCourseRoute}
         />
       )}
 
