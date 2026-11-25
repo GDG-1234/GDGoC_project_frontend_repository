@@ -268,7 +268,7 @@ export const NextCourseBanner: React.FC<NextCourseBannerProps> = ({
                 >
                   <Icon name="map" size={16} />
                   <span>
-                    지도에서 경로 보기 · 약{' '}
+                    지도에서 경로 보기 ·{' '}
                     {formatDurationText(nextInfo.route.summary.totalSeconds)}
                   </span>
                   <Icon name="arrow" size={16} />
