@@ -1754,6 +1754,12 @@ button {
     height: 45%;
     border-bottom: 1px solid var(--line);
   }
+  .app-shell.artifact-open .empty-chat {
+    display: none;
+  }
+  .app-shell.artifact-open .empty-chat ~ .artifact {
+    height: calc(100dvh - 58px);
+  }
   .mobile-chat-title {
     display: block;
     padding: 12px 18px 8px;
