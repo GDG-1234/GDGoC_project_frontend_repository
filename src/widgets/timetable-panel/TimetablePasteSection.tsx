@@ -10,6 +10,7 @@ import { DAY_LABELS } from './TimetablePanel';
 
 interface TimetablePasteSectionProps {
   existingCount: number;
+  existingStatus: 'idle' | 'loading' | 'loaded' | 'error';
   onSaved: () => Promise<void>;
   onClose: () => void;
 }
@@ -30,6 +31,7 @@ function toCourseInput(course: Course): CourseInput {
 
 export const TimetablePasteSection: React.FC<TimetablePasteSectionProps> = ({
   existingCount,
+  existingStatus,
   onSaved,
   onClose,
 }) => {
@@ -39,6 +41,8 @@ export const TimetablePasteSection: React.FC<TimetablePasteSectionProps> = ({
   const [errorText, setErrorText] = useState<string | null>(null);
   const [parsedCourses, setParsedCourses] = useState<Course[] | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
+  const [confirmReplaceOnUnknown, setConfirmReplaceOnUnknown] =
+    useState<boolean>(false);
 
   const handleParse = async () => {
     if (!rawText.trim()) {
@@ -210,19 +214,39 @@ export const TimetablePasteSection: React.FC<TimetablePasteSectionProps> = ({
                 ))}
               </ul>
 
-              {existingCount > 0 && (
+              {existingStatus !== 'loaded' ? (
+                <div className="timetable-replace-warning">
+                  <p className="timetable-replace-notice">
+                    기존 시간표 상태를 확인하지 못했어요. 일괄 등록하면 서버에
+                    저장된 기존 시간표가 모두 새 시간표로 교체됩니다.
+                  </p>
+                  <label className="timetable-confirm-checkbox">
+                    <input
+                      type="checkbox"
+                      checked={confirmReplaceOnUnknown}
+                      onChange={(e) =>
+                        setConfirmReplaceOnUnknown(e.target.checked)
+                      }
+                    />
+                    <span>기존 시간표 전체 교체를 확인했습니다</span>
+                  </label>
+                </div>
+              ) : existingCount > 0 ? (
                 <p className="timetable-replace-notice">
                   등록하면 기존에 저장된 수업 {existingCount}개가 새 시간표로
                   교체됩니다.
                 </p>
-              )}
+              ) : null}
 
               <div className="timetable-paste-actions">
                 <button
                   type="button"
                   className="timetable-btn-accent"
                   onClick={() => void handleSaveAll()}
-                  disabled={saving}
+                  disabled={
+                    saving ||
+                    (existingStatus !== 'loaded' && !confirmReplaceOnUnknown)
+                  }
                 >
                   {saving
                     ? '일괄 등록 중...'

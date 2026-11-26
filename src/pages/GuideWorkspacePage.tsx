@@ -190,12 +190,14 @@ function formatRouteReply(
   res: RouteResponse,
   mode: RouteMode,
   avoidRoad: boolean,
+  avoidStairs: boolean,
   usedDefaultOrigin: boolean
 ): string {
   const { summary, steps } = res;
   const optionLabel = [
     mode === 'EASIEST' ? '편한 길' : '빠른 길',
     avoidRoad ? '차도 피하기' : null,
+    avoidStairs ? '계단 피하기' : null,
   ]
     .filter(Boolean)
     .join(' · ');
@@ -256,6 +258,7 @@ export const GuideWorkspacePage: React.FC = () => {
   const [toPlace, setToPlace] = useState<PlaceSummary | null>(null);
   const [mode, setMode] = useState<RouteMode>('FASTEST');
   const [avoidRoad, setAvoidRoad] = useState<boolean>(false);
+  const [avoidStairs, setAvoidStairs] = useState<boolean>(false);
   const [routeResult, setRouteResult] = useState<RouteResponse | null>(null);
   const [activeStepIndex, setActiveStepIndex] = useState<number | null>(0);
   const [mapPickTarget, setMapPickTarget] = useState<MapPickTarget>(null);
@@ -295,6 +298,7 @@ export const GuideWorkspacePage: React.FC = () => {
     useState<boolean>(false);
 
   const requestIdRef = useRef(0);
+  const chatSessionVersionRef = useRef(0);
   const swipeStartXRef = useRef<number | null>(null);
 
   const totalSteps = routeResult?.steps.length ?? 0;
@@ -356,10 +360,12 @@ export const GuideWorkspacePage: React.FC = () => {
     const unsubscribe = subscribeAuthState((fbUser) => {
       if (!fbUser) {
         if (!active) return;
+        chatSessionVersionRef.current += 1;
         setCurrentUser(null);
         setConversations([]);
         setActiveConversationId(null);
         setRemainingToday(null);
+        setArtifactHistory([]);
         setAuthLoading(false);
         return;
       }
@@ -419,17 +425,38 @@ export const GuideWorkspacePage: React.FC = () => {
     }
   };
 
-  const handleSignOut = async () => {
-    setIsLogoutConfirmOpen(false);
-    setAuthError(null);
-    await signOutFirebase();
+  const resetSessionWorkspace = useCallback(() => {
+    chatSessionVersionRef.current += 1;
+    requestIdRef.current += 1;
+    setIsLoading(false);
     setMessages([]);
     setActiveConversationId(null);
     setActiveCards([]);
     setActiveCardsTitle(undefined);
     setRemainingToday(null);
+    setArtifactHistory([]);
+    setFromPlace(null);
+    setToPlace(null);
+    setRouteResult(null);
+    setSelectedBuilding(null);
+    setActiveArtifactId(null);
+    setArtifactSubtitle(null);
+    setArtifactTitle('동국대 2D 캠퍼스 지도');
+    setMapPickTarget(null);
+    setIsSearchOpen(false);
+    setIsStepsSheetOpen(false);
+    setMode('FASTEST');
+    setAvoidRoad(false);
+    setAvoidStairs(false);
     setArtifact(null);
     setActiveSection('chat');
+  }, []);
+
+  const handleSignOut = async () => {
+    setIsLogoutConfirmOpen(false);
+    setAuthError(null);
+    resetSessionWorkspace();
+    await signOutFirebase();
   };
 
   useEffect(() => {
@@ -442,17 +469,21 @@ export const GuideWorkspacePage: React.FC = () => {
   }, [isLogoutConfirmOpen]);
 
   const handleSelectConversation = async (convId: number) => {
+    const sessionVer = ++chatSessionVersionRef.current;
     setIsLoading(true);
     setActiveSection('chat');
     try {
       const detail = await fetchConversationDetail(convId);
+      if (sessionVer !== chatSessionVersionRef.current) return;
       setActiveConversationId(detail.id);
       setMessages(detail.messages.map(mapServerMessage));
       setArtifactTitle(detail.title);
+      setArtifactSubtitle(null);
       setActiveCards([]);
       setActiveCardsTitle(undefined);
       setArtifact(null);
     } catch (err) {
+      if (sessionVer !== chatSessionVersionRef.current) return;
       const msg =
         err instanceof PortalApiError
           ? err.message
@@ -462,7 +493,9 @@ export const GuideWorkspacePage: React.FC = () => {
         void refreshConversations();
       }
     } finally {
-      setIsLoading(false);
+      if (sessionVer === chatSessionVersionRef.current) {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -471,6 +504,8 @@ export const GuideWorkspacePage: React.FC = () => {
       await deleteConversation(convId);
       setConversations((prev) => prev.filter((c) => c.id !== convId));
       if (activeConversationId === convId) {
+        chatSessionVersionRef.current += 1;
+        setIsLoading(false);
         setActiveConversationId(null);
         setMessages([]);
         setActiveCards([]);
@@ -522,12 +557,14 @@ export const GuideWorkspacePage: React.FC = () => {
     res: RouteResponse,
     nextMode: RouteMode,
     nextAvoidRoad: boolean,
+    nextAvoidStairs: boolean,
     artifactId: string
   ) => {
     setFromPlace(from);
     setToPlace(to);
     setMode(nextMode);
     setAvoidRoad(nextAvoidRoad);
+    setAvoidStairs(nextAvoidStairs);
     setRouteResult(res);
     setActiveStepIndex(0);
     setSelectedBuilding(null);
@@ -578,6 +615,7 @@ export const GuideWorkspacePage: React.FC = () => {
     to: PlaceSummary,
     nextMode: RouteMode,
     nextAvoidRoad: boolean,
+    nextAvoidStairs: boolean,
     usedDefaultOrigin = false
   ) => {
     const reqId = ++requestIdRef.current;
@@ -590,6 +628,7 @@ export const GuideWorkspacePage: React.FC = () => {
         options: {
           mode: nextMode,
           avoidRoad: nextAvoidRoad,
+          avoidStairs: nextAvoidStairs,
           compare: true,
         },
       });
@@ -605,9 +644,18 @@ export const GuideWorkspacePage: React.FC = () => {
         routeResult: res,
         mode: nextMode,
         avoidRoad: nextAvoidRoad,
+        avoidStairs: nextAvoidStairs,
       };
       registerArtifact(payload);
-      applyRouteState(from, to, res, nextMode, nextAvoidRoad, artifactId);
+      applyRouteState(
+        from,
+        to,
+        res,
+        nextMode,
+        nextAvoidRoad,
+        nextAvoidStairs,
+        artifactId
+      );
       appendAssistantMessage(
         formatRouteReply(
           from,
@@ -615,6 +663,7 @@ export const GuideWorkspacePage: React.FC = () => {
           res,
           nextMode,
           nextAvoidRoad,
+          nextAvoidStairs,
           usedDefaultOrigin
         ),
         { artifact: payload }
@@ -652,11 +701,13 @@ export const GuideWorkspacePage: React.FC = () => {
         selectSection('timetable');
         return;
       }
+      const sessionVer = chatSessionVersionRef.current;
       setIsLoading(true);
       try {
-        const res = await fetchNextCourse({ mode });
+        const res = await fetchNextCourse({ mode, avoidStairs });
+        if (sessionVer !== chatSessionVersionRef.current) return;
         if (res.route) {
-          const payload = handleOpenNextCourseRoute(res);
+          const payload = handleOpenNextCourseRoute(res, { mode, avoidStairs });
           setMessages((prev) => [
             ...prev,
             { id: createId('msg-user'), role: 'user', text },
@@ -670,9 +721,12 @@ export const GuideWorkspacePage: React.FC = () => {
           return;
         }
       } catch {
+        if (sessionVer !== chatSessionVersionRef.current) return;
         // 실패 시 시간표 패널에서 재시도·안내
       } finally {
-        setIsLoading(false);
+        if (sessionVer === chatSessionVersionRef.current) {
+          setIsLoading(false);
+        }
       }
       selectSection('timetable');
       return;
@@ -687,6 +741,7 @@ export const GuideWorkspacePage: React.FC = () => {
         return;
       }
 
+      const sessionVer = chatSessionVersionRef.current;
       const optimisticId = createId('msg-user');
       setMessages((prev) => [
         ...prev,
@@ -698,12 +753,20 @@ export const GuideWorkspacePage: React.FC = () => {
         let convId = activeConversationId;
         if (convId === null) {
           const created = await createConversation();
+          if (sessionVer !== chatSessionVersionRef.current) {
+            void refreshConversations();
+            return;
+          }
           convId = created.id;
           setActiveConversationId(convId);
           setConversations((prev) => [created, ...prev]);
         }
 
         const res = await sendConversationMessage(convId, { content: text });
+        if (sessionVer !== chatSessionVersionRef.current) {
+          void refreshConversations();
+          return;
+        }
         const userMsg = mapServerMessage(res.userMessage);
         const assistantMsg = mapServerMessage(res.assistantMessage);
 
@@ -724,6 +787,7 @@ export const GuideWorkspacePage: React.FC = () => {
 
         void refreshConversations();
       } catch (err) {
+        if (sessionVer !== chatSessionVersionRef.current) return;
         if (err instanceof PortalApiError) {
           if (err.code === 'CONVERSATION_NOT_FOUND') {
             setActiveConversationId(null);
@@ -737,7 +801,9 @@ export const GuideWorkspacePage: React.FC = () => {
           );
         }
       } finally {
-        setIsLoading(false);
+        if (sessionVer === chatSessionVersionRef.current) {
+          setIsLoading(false);
+        }
       }
       return;
     }
@@ -807,6 +873,7 @@ export const GuideWorkspacePage: React.FC = () => {
           resolvedTo,
           nextMode,
           nextAvoidRoad,
+          avoidStairs,
           usedDefaultOrigin
         );
       } catch (err) {
@@ -953,6 +1020,7 @@ export const GuideWorkspacePage: React.FC = () => {
         payload.routeResult,
         payload.mode ?? mode,
         payload.avoidRoad ?? avoidRoad,
+        payload.avoidStairs ?? avoidStairs,
         payload.id
       );
     } else if (payload.kind === 'BUILDING' && payload.buildingDetail) {
@@ -967,9 +1035,12 @@ export const GuideWorkspacePage: React.FC = () => {
     setActiveSection(section);
 
     if (section === 'chat') {
+      chatSessionVersionRef.current += 1;
+      setIsLoading(false);
       setActiveConversationId(null);
       setMessages([]);
       setArtifact(null);
+      setArtifactSubtitle(null);
       setActiveCards([]);
       setActiveCardsTitle(undefined);
       setRouteResult(null);
@@ -1005,10 +1076,12 @@ export const GuideWorkspacePage: React.FC = () => {
 
   const recalculateActiveRouteIfNeeded = async (
     nextMode: RouteMode,
-    nextAvoidRoad: boolean
+    nextAvoidRoad: boolean,
+    nextAvoidStairs: boolean
   ) => {
     setMode(nextMode);
     setAvoidRoad(nextAvoidRoad);
+    setAvoidStairs(nextAvoidStairs);
     if (!fromPlace || !toPlace) return;
     const reqId = ++requestIdRef.current;
     setIsLoading(true);
@@ -1017,7 +1090,12 @@ export const GuideWorkspacePage: React.FC = () => {
       const res = await calculateRoute({
         from: { placeId: fromPlace.id },
         to: { placeId: toPlace.id },
-        options: { mode: nextMode, avoidRoad: nextAvoidRoad, compare: true },
+        options: {
+          mode: nextMode,
+          avoidRoad: nextAvoidRoad,
+          avoidStairs: nextAvoidStairs,
+          compare: true,
+        },
       });
       if (reqId !== requestIdRef.current) return;
       setRouteResult(res);
@@ -1040,7 +1118,7 @@ export const GuideWorkspacePage: React.FC = () => {
     else setToPlace(place);
 
     if (nextFrom && nextTo) {
-      await runRouteAndAnnounce(nextFrom, nextTo, mode, avoidRoad);
+      await runRouteAndAnnounce(nextFrom, nextTo, mode, avoidRoad, avoidStairs);
     } else {
       appendAssistantMessage(
         `'${place.name}'을(를) ${
@@ -1058,7 +1136,7 @@ export const GuideWorkspacePage: React.FC = () => {
     setFromPlace(nextFrom);
     setToPlace(nextTo);
     if (nextFrom && nextTo) {
-      await runRouteAndAnnounce(nextFrom, nextTo, mode, avoidRoad);
+      await runRouteAndAnnounce(nextFrom, nextTo, mode, avoidRoad, avoidStairs);
     }
   };
 
@@ -1115,7 +1193,8 @@ export const GuideWorkspacePage: React.FC = () => {
   };
 
   const handleOpenNextCourseRoute = (
-    info: NextCourseResponse
+    info: NextCourseResponse,
+    options: { mode: RouteMode; avoidStairs: boolean }
   ): ChatArtifactPayload | null => {
     if (!info.route) return null;
     const { summary, segments } = info.route;
@@ -1156,11 +1235,20 @@ export const GuideWorkspacePage: React.FC = () => {
       fromPlace: from,
       toPlace: to,
       routeResult: info.route,
-      mode,
+      mode: options.mode,
       avoidRoad: false,
+      avoidStairs: options.avoidStairs,
     };
     registerArtifact(payload);
-    applyRouteState(from, to, info.route, mode, false, artifactId);
+    applyRouteState(
+      from,
+      to,
+      info.route,
+      options.mode,
+      false,
+      options.avoidStairs,
+      artifactId
+    );
     setArtifactTitle(title);
     setArtifactSubtitle(
       info.next ? `다음 수업 · ${info.next.name}` : '다음 수업 길안내'
@@ -1279,12 +1367,18 @@ export const GuideWorkspacePage: React.FC = () => {
         remainingToday={remainingToday}
         mode={mode}
         avoidRoad={avoidRoad}
+        avoidStairs={avoidStairs}
         suggestions={useMock ? MOCK_SUGGESTIONS : LIVE_SUGGESTIONS}
         onSendMessage={handleSendMessage}
         onOpenArtifact={handleOpenArtifact}
-        onChangeMode={(m) => recalculateActiveRouteIfNeeded(m, avoidRoad)}
+        onChangeMode={(m) =>
+          recalculateActiveRouteIfNeeded(m, avoidRoad, avoidStairs)
+        }
         onToggleAvoidRoad={() =>
-          recalculateActiveRouteIfNeeded(mode, !avoidRoad)
+          recalculateActiveRouteIfNeeded(mode, !avoidRoad, avoidStairs)
+        }
+        onToggleAvoidStairs={() =>
+          recalculateActiveRouteIfNeeded(mode, avoidRoad, !avoidStairs)
         }
         onFallbackToMock={handleFallbackToMock}
         onSignIn={() => void handleSignIn()}

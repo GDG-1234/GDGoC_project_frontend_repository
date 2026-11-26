@@ -15,7 +15,10 @@ import {
   NextCourseResponse,
 } from '../../shared/types/timetable';
 import { Icon } from '../../shared/ui/Icon';
-import { NextCourseBanner } from './NextCourseBanner';
+import {
+  NextCourseBanner,
+  NextCourseRouteOptions,
+} from './NextCourseBanner';
 import { TimetablePasteSection } from './TimetablePasteSection';
 
 export const DAY_ORDER: Day[] = [
@@ -98,7 +101,10 @@ interface TimetablePanelProps {
   buildings: BuildingSummary[];
   onSignIn: () => void;
   onClose: () => void;
-  onOpenRouteOnMap: (info: NextCourseResponse) => void;
+  onOpenRouteOnMap: (
+    info: NextCourseResponse,
+    options: NextCourseRouteOptions
+  ) => void;
 }
 
 export const TimetablePanel: React.FC<TimetablePanelProps> = ({
@@ -112,6 +118,9 @@ export const TimetablePanel: React.FC<TimetablePanelProps> = ({
   const [courses, setCourses] = useState<Course[]>([]);
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
   const [nextRefreshKey, setNextRefreshKey] = useState<number>(0);
+  const [loadStatus, setLoadStatus] = useState<
+    'idle' | 'loading' | 'loaded' | 'error'
+  >('idle');
   const [loading, setLoading] = useState<boolean>(false);
   const [saving, setSaving] = useState<boolean>(false);
   const [errorText, setErrorText] = useState<string | null>(null);
@@ -129,6 +138,12 @@ export const TimetablePanel: React.FC<TimetablePanelProps> = ({
   const [isFormOpen, setIsFormOpen] = useState<boolean>(false);
   const [isPasteOpen, setIsPasteOpen] = useState<boolean>(false);
   const [editingCourseId, setEditingCourseId] = useState<number | null>(null);
+  const [editingOriginals, setEditingOriginals] = useState<{
+    weeks: string | null;
+    room: string | null;
+    buildingName: string;
+    roomNumber: string;
+  } | null>(null);
   const [form, setForm] = useState<CourseFormState>(EMPTY_FORM);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -138,13 +153,16 @@ export const TimetablePanel: React.FC<TimetablePanelProps> = ({
   const loadTimetable = useCallback(async () => {
     if (!isAuthenticated) return;
     setLoading(true);
+    setLoadStatus('loading');
     setErrorText(null);
     try {
       const res = await fetchMyTimetable();
       setCourses(res.courses);
       setUpdatedAt(res.updatedAt);
+      setLoadStatus('loaded');
       setNextRefreshKey((k) => k + 1);
     } catch (err) {
+      setLoadStatus('error');
       setErrorText(
         err instanceof TimetableApiError
           ? err.message
@@ -161,6 +179,7 @@ export const TimetablePanel: React.FC<TimetablePanelProps> = ({
     } else {
       setCourses([]);
       setUpdatedAt(null);
+      setLoadStatus('idle');
       setErrorText(null);
     }
   }, [isAuthenticated, loadTimetable]);
@@ -217,6 +236,7 @@ export const TimetablePanel: React.FC<TimetablePanelProps> = ({
   const openCreateForm = () => {
     setIsPasteOpen(false);
     setEditingCourseId(null);
+    setEditingOriginals(null);
     setForm({ ...EMPTY_FORM, day: selectedDay });
     setFormError(null);
     setIsFormOpen(true);
@@ -231,6 +251,12 @@ export const TimetablePanel: React.FC<TimetablePanelProps> = ({
     if (course.id === null) return;
     setIsPasteOpen(false);
     setEditingCourseId(course.id);
+    setEditingOriginals({
+      weeks: course.weeks ?? null,
+      room: course.room ?? null,
+      buildingName: course.buildingName || '',
+      roomNumber: course.roomNumber || '',
+    });
     setForm({
       name: course.name,
       day: course.day,
@@ -247,6 +273,7 @@ export const TimetablePanel: React.FC<TimetablePanelProps> = ({
   const closeForm = () => {
     setIsFormOpen(false);
     setEditingCourseId(null);
+    setEditingOriginals(null);
     setFormError(null);
   };
 
@@ -262,14 +289,27 @@ export const TimetablePanel: React.FC<TimetablePanelProps> = ({
       return;
     }
 
+    const nextBuilding = form.buildingName.trim();
+    const nextRoomNumber = form.roomNumber.trim();
+    const roomFieldsChanged =
+      editingOriginals !== null &&
+      (nextBuilding !== editingOriginals.buildingName.trim() ||
+        nextRoomNumber !== editingOriginals.roomNumber.trim());
+
     const payload: CourseInput = {
       name: trimmedName,
       day: form.day,
       startTime: form.startTime,
       endTime: form.endTime,
-      buildingName: form.buildingName.trim() || null,
-      roomNumber: form.roomNumber.trim() || null,
+      buildingName: nextBuilding || null,
+      roomNumber: nextRoomNumber || null,
       roomDescription: form.roomDescription.trim() || null,
+      ...(editingOriginals !== null
+        ? {
+            weeks: editingOriginals.weeks,
+            room: roomFieldsChanged ? null : editingOriginals.room,
+          }
+        : {}),
     };
 
     setSaving(true);
@@ -437,6 +477,7 @@ export const TimetablePanel: React.FC<TimetablePanelProps> = ({
             {isPasteOpen && (
               <TimetablePasteSection
                 existingCount={courses.length}
+                existingStatus={loadStatus}
                 onSaved={loadTimetable}
                 onClose={() => setIsPasteOpen(false)}
               />

@@ -2711,6 +2711,26 @@ button {
   color: #555;
 }
 
+.timetable-replace-warning {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.timetable-confirm-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.timetable-confirm-checkbox input {
+  accent-color: var(--orange);
+}
+
 /* Toolbar */
 .timetable-toolbar {
   display: flex;

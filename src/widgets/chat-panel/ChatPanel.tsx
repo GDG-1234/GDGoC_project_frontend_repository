@@ -17,6 +17,7 @@ export interface ChatArtifactPayload {
   routeResult?: RouteResponse | null;
   mode?: RouteMode;
   avoidRoad?: boolean;
+  avoidStairs?: boolean;
   buildingDetail?: BuildingDetailResponse | null;
   cards?: ChatCard[];
 }
@@ -50,11 +51,13 @@ interface ChatPanelProps {
   remainingToday: number | null;
   mode: RouteMode;
   avoidRoad: boolean;
+  avoidStairs: boolean;
   suggestions: PromptSuggestionItem[];
   onSendMessage: (text: string) => void;
   onOpenArtifact: (artifact: ChatArtifactPayload) => void;
   onChangeMode: (mode: RouteMode) => void;
   onToggleAvoidRoad: () => void;
+  onToggleAvoidStairs: () => void;
   onFallbackToMock: () => void;
   onSignIn: () => void;
 }
@@ -120,11 +123,13 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
   remainingToday,
   mode,
   avoidRoad,
+  avoidStairs,
   suggestions,
   onSendMessage,
   onOpenArtifact,
   onChangeMode,
   onToggleAvoidRoad,
+  onToggleAvoidStairs,
   onFallbackToMock,
   onSignIn,
 }) => {
@@ -328,6 +333,14 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
               onClick={onToggleAvoidRoad}
             >
               차도 피하기
+            </button>
+            <button
+              type="button"
+              className={avoidStairs ? 'option-chip active' : 'option-chip'}
+              aria-pressed={avoidStairs}
+              onClick={onToggleAvoidStairs}
+            >
+              계단 피하기
             </button>
           </div>
         )}
