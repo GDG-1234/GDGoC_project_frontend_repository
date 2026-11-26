@@ -298,6 +298,7 @@ export const GuideWorkspacePage: React.FC = () => {
     useState<boolean>(false);
 
   const requestIdRef = useRef(0);
+  const chatSessionVersionRef = useRef(0);
   const swipeStartXRef = useRef<number | null>(null);
 
   const totalSteps = routeResult?.steps.length ?? 0;
@@ -359,10 +360,12 @@ export const GuideWorkspacePage: React.FC = () => {
     const unsubscribe = subscribeAuthState((fbUser) => {
       if (!fbUser) {
         if (!active) return;
+        chatSessionVersionRef.current += 1;
         setCurrentUser(null);
         setConversations([]);
         setActiveConversationId(null);
         setRemainingToday(null);
+        setArtifactHistory([]);
         setAuthLoading(false);
         return;
       }
@@ -422,17 +425,38 @@ export const GuideWorkspacePage: React.FC = () => {
     }
   };
 
-  const handleSignOut = async () => {
-    setIsLogoutConfirmOpen(false);
-    setAuthError(null);
-    await signOutFirebase();
+  const resetSessionWorkspace = useCallback(() => {
+    chatSessionVersionRef.current += 1;
+    requestIdRef.current += 1;
+    setIsLoading(false);
     setMessages([]);
     setActiveConversationId(null);
     setActiveCards([]);
     setActiveCardsTitle(undefined);
     setRemainingToday(null);
+    setArtifactHistory([]);
+    setFromPlace(null);
+    setToPlace(null);
+    setRouteResult(null);
+    setSelectedBuilding(null);
+    setActiveArtifactId(null);
+    setArtifactSubtitle(null);
+    setArtifactTitle('동국대 2D 캠퍼스 지도');
+    setMapPickTarget(null);
+    setIsSearchOpen(false);
+    setIsStepsSheetOpen(false);
+    setMode('FASTEST');
+    setAvoidRoad(false);
+    setAvoidStairs(false);
     setArtifact(null);
     setActiveSection('chat');
+  }, []);
+
+  const handleSignOut = async () => {
+    setIsLogoutConfirmOpen(false);
+    setAuthError(null);
+    resetSessionWorkspace();
+    await signOutFirebase();
   };
 
   useEffect(() => {
@@ -445,17 +469,21 @@ export const GuideWorkspacePage: React.FC = () => {
   }, [isLogoutConfirmOpen]);
 
   const handleSelectConversation = async (convId: number) => {
+    const sessionVer = ++chatSessionVersionRef.current;
     setIsLoading(true);
     setActiveSection('chat');
     try {
       const detail = await fetchConversationDetail(convId);
+      if (sessionVer !== chatSessionVersionRef.current) return;
       setActiveConversationId(detail.id);
       setMessages(detail.messages.map(mapServerMessage));
       setArtifactTitle(detail.title);
+      setArtifactSubtitle(null);
       setActiveCards([]);
       setActiveCardsTitle(undefined);
       setArtifact(null);
     } catch (err) {
+      if (sessionVer !== chatSessionVersionRef.current) return;
       const msg =
         err instanceof PortalApiError
           ? err.message
@@ -465,7 +493,9 @@ export const GuideWorkspacePage: React.FC = () => {
         void refreshConversations();
       }
     } finally {
-      setIsLoading(false);
+      if (sessionVer === chatSessionVersionRef.current) {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -474,6 +504,8 @@ export const GuideWorkspacePage: React.FC = () => {
       await deleteConversation(convId);
       setConversations((prev) => prev.filter((c) => c.id !== convId));
       if (activeConversationId === convId) {
+        chatSessionVersionRef.current += 1;
+        setIsLoading(false);
         setActiveConversationId(null);
         setMessages([]);
         setActiveCards([]);
@@ -669,9 +701,11 @@ export const GuideWorkspacePage: React.FC = () => {
         selectSection('timetable');
         return;
       }
+      const sessionVer = chatSessionVersionRef.current;
       setIsLoading(true);
       try {
         const res = await fetchNextCourse({ mode, avoidStairs });
+        if (sessionVer !== chatSessionVersionRef.current) return;
         if (res.route) {
           const payload = handleOpenNextCourseRoute(res, { mode, avoidStairs });
           setMessages((prev) => [
@@ -687,9 +721,12 @@ export const GuideWorkspacePage: React.FC = () => {
           return;
         }
       } catch {
+        if (sessionVer !== chatSessionVersionRef.current) return;
         // 실패 시 시간표 패널에서 재시도·안내
       } finally {
-        setIsLoading(false);
+        if (sessionVer === chatSessionVersionRef.current) {
+          setIsLoading(false);
+        }
       }
       selectSection('timetable');
       return;
@@ -704,6 +741,7 @@ export const GuideWorkspacePage: React.FC = () => {
         return;
       }
 
+      const sessionVer = chatSessionVersionRef.current;
       const optimisticId = createId('msg-user');
       setMessages((prev) => [
         ...prev,
@@ -715,12 +753,20 @@ export const GuideWorkspacePage: React.FC = () => {
         let convId = activeConversationId;
         if (convId === null) {
           const created = await createConversation();
+          if (sessionVer !== chatSessionVersionRef.current) {
+            void refreshConversations();
+            return;
+          }
           convId = created.id;
           setActiveConversationId(convId);
           setConversations((prev) => [created, ...prev]);
         }
 
         const res = await sendConversationMessage(convId, { content: text });
+        if (sessionVer !== chatSessionVersionRef.current) {
+          void refreshConversations();
+          return;
+        }
         const userMsg = mapServerMessage(res.userMessage);
         const assistantMsg = mapServerMessage(res.assistantMessage);
 
@@ -741,6 +787,7 @@ export const GuideWorkspacePage: React.FC = () => {
 
         void refreshConversations();
       } catch (err) {
+        if (sessionVer !== chatSessionVersionRef.current) return;
         if (err instanceof PortalApiError) {
           if (err.code === 'CONVERSATION_NOT_FOUND') {
             setActiveConversationId(null);
@@ -754,7 +801,9 @@ export const GuideWorkspacePage: React.FC = () => {
           );
         }
       } finally {
-        setIsLoading(false);
+        if (sessionVer === chatSessionVersionRef.current) {
+          setIsLoading(false);
+        }
       }
       return;
     }
@@ -986,9 +1035,12 @@ export const GuideWorkspacePage: React.FC = () => {
     setActiveSection(section);
 
     if (section === 'chat') {
+      chatSessionVersionRef.current += 1;
+      setIsLoading(false);
       setActiveConversationId(null);
       setMessages([]);
       setArtifact(null);
+      setArtifactSubtitle(null);
       setActiveCards([]);
       setActiveCardsTitle(undefined);
       setRouteResult(null);
