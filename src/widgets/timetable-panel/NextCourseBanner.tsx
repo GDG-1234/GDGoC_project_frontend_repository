@@ -8,10 +8,18 @@ import { PlaceSummary, RouteMode } from '../../shared/types/api';
 import { NextCourseResponse } from '../../shared/types/timetable';
 import { Icon } from '../../shared/ui/Icon';
 
+export interface NextCourseRouteOptions {
+  mode: RouteMode;
+  avoidStairs: boolean;
+}
+
 interface NextCourseBannerProps {
   refreshKey: number;
   hasCourses: boolean;
-  onOpenRouteOnMap: (info: NextCourseResponse) => void;
+  onOpenRouteOnMap: (
+    info: NextCourseResponse,
+    options: NextCourseRouteOptions
+  ) => void;
 }
 
 function getOriginSourceLabel(
@@ -264,7 +272,9 @@ export const NextCourseBanner: React.FC<NextCourseBannerProps> = ({
                 <button
                   type="button"
                   className="next-course-map-cta"
-                  onClick={() => onOpenRouteOnMap(nextInfo)}
+                  onClick={() =>
+                    onOpenRouteOnMap(nextInfo, { mode, avoidStairs })
+                  }
                 >
                   <Icon name="map" size={16} />
                   <span>

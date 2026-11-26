@@ -15,7 +15,10 @@ import {
   NextCourseResponse,
 } from '../../shared/types/timetable';
 import { Icon } from '../../shared/ui/Icon';
-import { NextCourseBanner } from './NextCourseBanner';
+import {
+  NextCourseBanner,
+  NextCourseRouteOptions,
+} from './NextCourseBanner';
 import { TimetablePasteSection } from './TimetablePasteSection';
 
 export const DAY_ORDER: Day[] = [
@@ -98,7 +101,10 @@ interface TimetablePanelProps {
   buildings: BuildingSummary[];
   onSignIn: () => void;
   onClose: () => void;
-  onOpenRouteOnMap: (info: NextCourseResponse) => void;
+  onOpenRouteOnMap: (
+    info: NextCourseResponse,
+    options: NextCourseRouteOptions
+  ) => void;
 }
 
 export const TimetablePanel: React.FC<TimetablePanelProps> = ({
