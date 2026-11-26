@@ -91,9 +91,17 @@ export const NextCourseBanner: React.FC<NextCourseBannerProps> = ({
     void loadNext();
   }, [loadNext, refreshKey]);
 
+  const needsOrigin =
+    Boolean(nextInfo?.next) &&
+    !nextInfo?.origin &&
+    !nextInfo?.route &&
+    !nextInfo?.routeError;
+
+  const isOriginSearchVisible = originPickerOpen || needsOrigin;
+
   useEffect(() => {
     const q = originQuery.trim();
-    if (!originPickerOpen || !q) {
+    if (!isOriginSearchVisible || !q) {
       setOriginResults([]);
       return;
     }
@@ -115,15 +123,9 @@ export const NextCourseBanner: React.FC<NextCourseBannerProps> = ({
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [originQuery, originPickerOpen]);
+  }, [originQuery, isOriginSearchVisible]);
 
   if (!hasCourses) return null;
-
-  const needsOrigin =
-    Boolean(nextInfo?.next) &&
-    !nextInfo?.origin &&
-    !nextInfo?.route &&
-    !nextInfo?.routeError;
 
   return (
     <section className="next-course-card" aria-label="다음 수업 길안내">
@@ -187,20 +189,18 @@ export const NextCourseBanner: React.FC<NextCourseBannerProps> = ({
                     출발지를 고르면 경로를 바로 계산해 드려요.
                   </span>
                 )}
-                <button
-                  type="button"
-                  className="timetable-text-btn"
-                  onClick={() => setOriginPickerOpen((prev) => !prev)}
-                >
-                  {originPickerOpen
-                    ? '닫기'
-                    : nextInfo.origin
-                    ? '출발지 변경'
-                    : '출발지 고르기'}
-                </button>
+                {!needsOrigin && (
+                  <button
+                    type="button"
+                    className="timetable-text-btn"
+                    onClick={() => setOriginPickerOpen((prev) => !prev)}
+                  >
+                    {originPickerOpen ? '닫기' : '출발지 변경'}
+                  </button>
+                )}
               </div>
 
-              {(originPickerOpen || needsOrigin) && (
+              {isOriginSearchVisible && (
                 <div className="next-course-origin-picker">
                   <div className="next-course-origin-input-wrap">
                     <Icon name="search" size={15} />
